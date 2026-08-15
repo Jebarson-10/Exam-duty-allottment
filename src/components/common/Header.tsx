@@ -4,6 +4,7 @@ import React from 'react';
 import { ExamCycle } from '../../types';
 import {
   LayoutDashboard,
+  UploadCloud,
   School as SchoolIcon,
   Building2,
   Users,
@@ -13,9 +14,7 @@ import {
   Grid,
   FileText,
   Activity,
-  FileSpreadsheet,
   Calendar,
-  Cloud,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -24,7 +23,7 @@ interface HeaderProps {
   examCycles: ExamCycle[];
   activeCycle: ExamCycle;
   onCycleChange: (cycleId: string) => void;
-  onOpenBulkModal: () => void;
+  onOpenIngestion: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,19 +32,20 @@ export const Header: React.FC<HeaderProps> = ({
   examCycles,
   activeCycle,
   onCycleChange,
-  onOpenBulkModal,
+  onOpenIngestion,
 }) => {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'ingest', label: 'Smart File Ingestion (Excel/PDF)', icon: UploadCloud },
     { id: 'map', label: 'GPS Coordinate Capture', icon: MapPin },
     { id: 'theory', label: 'Theory Allotment', icon: Sparkles },
     { id: 'practical', label: 'Practical Allotment', icon: FlaskConical },
     { id: 'hall', label: 'Hall Invigilation', icon: Grid },
-    { id: 'schools', label: 'Schools', icon: SchoolIcon },
+    { id: 'schools', label: 'Schools Registry', icon: SchoolIcon },
     { id: 'centres', label: 'Exam Centres', icon: Building2 },
-    { id: 'teachers', label: 'Faculty Registry', icon: Users },
+    { id: 'teachers', label: 'Faculty Database', icon: Users },
     { id: 'reports', label: 'Official Orders & PDF', icon: FileText },
-    { id: 'audit', label: 'Audit & Backup', icon: Activity },
+    { id: 'audit', label: 'Audit & Cloud Backup', icon: Activity },
   ];
 
   return (
@@ -62,16 +62,16 @@ export const Header: React.FC<HeaderProps> = ({
                 GOVERNMENT OF TAMIL NADU · DEPARTMENT OF SCHOOL EDUCATION
               </div>
               <div className="text-[10px] text-slate-400 font-medium">
-                Chief Educational Officer (CEO), Erode District — Exam Duty Automation System
+                Chief Educational Officer (CEO), Erode District — Exam Duty Automation Portal
               </div>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
-            {/* Cloudflare D1 Dual Mode Indicator */}
+            {/* Serverless Status */}
             <div className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Rs. 0/mo Cloudflare D1 Ready</span>
+              <span>Production Serverless (Rs. 0/mo)</span>
             </div>
 
             {/* Exam Cycle Switcher */}
@@ -90,13 +90,13 @@ export const Header: React.FC<HeaderProps> = ({
               </select>
             </div>
 
-            {/* Bulk Upload Action */}
+            {/* Ingest Action Button */}
             <button
-              onClick={onOpenBulkModal}
-              className="flex items-center space-x-1 px-2.5 py-1 bg-tngold-600 hover:bg-tngold-500 text-tnnavy-950 font-bold rounded text-[11px] transition"
+              onClick={onOpenIngestion}
+              className="flex items-center space-x-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[11px] transition shadow"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Bulk Excel/CSV</span>
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>Ingest Master File</span>
             </button>
           </div>
         </div>

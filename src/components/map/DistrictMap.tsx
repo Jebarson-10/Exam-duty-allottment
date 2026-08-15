@@ -1,11 +1,21 @@
 // Interactive Leaflet Map Screen & Coordinate Capture for Erode District
-// OpenStreetMap tiles, 10km catchment visualization, and click-to-pin coordinate editing.
+// OpenStreetMap tiles, 10km catchment visualization, auto-geocoding, and click-to-pin coordinate editing.
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { School, ExamCentre, Block } from '../../types';
-import { MapPin, Navigation, School as SchoolIcon, Building2, CheckCircle2, Info, Compass, ShieldCheck } from 'lucide-react';
+import { batchGeocodeItems } from '../../services/geocodingService';
+import {
+  MapPin,
+  School as SchoolIcon,
+  Building2,
+  CheckCircle2,
+  Info,
+  Compass,
+  Sparkles,
+  Layers,
+} from 'lucide-react';
 
 // Fix standard Leaflet default icon issues in bundler
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -49,9 +59,10 @@ interface DistrictMapProps {
   blocks: Block[];
   onUpdateSchoolCoords: (schoolId: string, lat: number, lng: number) => void;
   onUpdateCentreCoords: (centreId: string, lat: number, lng: number) => void;
+  onBatchUpdateSchools?: (schools: School[]) => void;
+  onBatchUpdateCentres?: (centres: ExamCentre[]) => void;
 }
 
-// Map Click Listener Component
 function MapClickCapture({
   isPinningMode,
   onMapClick,
@@ -75,18 +86,21 @@ export const DistrictMap: React.FC<DistrictMapProps> = ({
   blocks,
   onUpdateSchoolCoords,
   onUpdateCentreCoords,
+  onBatchUpdateSchools,
+  onBatchUpdateCentres,
 }) => {
   const [selectedBlock, setSelectedBlock] = useState<string>('ALL');
   const [showCentres, setShowCentres] = useState<boolean>(true);
   const [showSchools, setShowSchools] = useState<boolean>(true);
   const [showRadius, setShowRadius] = useState<boolean>(true);
-  const [radiusKm, setRadiusKm] = useState<number>(10);
+  const [radiusKm] = useState<number>(10);
 
   // Pinning Coordinate Capture Mode
   const [pinTargetType, setPinTargetType] = useState<'NONE' | 'SCHOOL' | 'CENTRE'>('NONE');
   const [selectedTargetId, setSelectedTargetId] = useState<string>('');
   const [tempCoords, setTempCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [isAutoGeocoding, setIsAutoGeocoding] = useState<boolean>(false);
 
   const ERODE_CENTER: [number, number] = [11.3418, 77.7212];
 
@@ -135,6 +149,24 @@ export const DistrictMap: React.FC<DistrictMapProps> = ({
     setSelectedTargetId('');
     setTempCoords(null);
     setTimeout(() => setSaveSuccessMsg(null), 4000);
+  };
+
+  const handleBatchAutoGeocodeAll = async () => {
+    setIsAutoGeocoding(true);
+    try {
+      const geocodedSchools = await batchGeocodeItems(schools);
+      const geocodedCentres = await batchGeocodeItems(centres);
+
+      if (onBatchUpdateSchools) onBatchUpdateSchools(geocodedSchools);
+      if (onBatchUpdateCentres) onBatchUpdateCentres(geocodedCentres);
+
+      setSaveSuccessMsg(`Successfully geocoded & mapped ${geocodedSchools.length} schools and ${geocodedCentres.length} centres on OpenStreetMap!`);
+    } catch (err: any) {
+      alert(`Geocoding error: ${err.message}`);
+    } finally {
+      setIsAutoGeocoding(false);
+      setTimeout(() => setSaveSuccessMsg(null), 4000);
+    }
   };
 
   return (
@@ -203,28 +235,16 @@ export const DistrictMap: React.FC<DistrictMapProps> = ({
             </label>
           </div>
 
-          {/* Quick Pin Action */}
+          {/* Auto-Geocode All Button */}
           <div className="flex items-center space-x-2">
-            {pinTargetType !== 'NONE' ? (
-              <div className="flex items-center space-x-2 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-lg text-amber-800 text-xs font-medium animate-pulse">
-                <MapPin className="w-4 h-4 text-amber-600" />
-                <span>Click on map to pin coordinates for {pinTargetType}</span>
-                <button
-                  onClick={() => {
-                    setPinTargetType('NONE');
-                    setTempCoords(null);
-                  }}
-                  className="ml-2 text-red-600 font-bold hover:underline"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div className="text-xs text-slate-500 flex items-center">
-                <Info className="w-4 h-4 mr-1 text-slate-400" />
-                <span>Tip: Click any marker to view details or re-pin GPS position.</span>
-              </div>
-            )}
+            <button
+              onClick={handleBatchAutoGeocodeAll}
+              disabled={isAutoGeocoding}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-bold hover:bg-indigo-100 transition disabled:opacity-50"
+            >
+              <Sparkles className={`w-3.5 h-3.5 ${isAutoGeocoding ? 'animate-spin' : 'text-indigo-600'}`} />
+              <span>{isAutoGeocoding ? 'Auto-Geocoding GPS...' : 'Auto-Geocode All Locations'}</span>
+            </button>
           </div>
         </div>
 
@@ -251,7 +271,7 @@ export const DistrictMap: React.FC<DistrictMapProps> = ({
 
         {saveSuccessMsg && (
           <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-300 rounded-lg flex items-center text-xs font-medium text-emerald-800">
-            <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600 shrink-0" />
             {saveSuccessMsg}
           </div>
         )}
@@ -298,11 +318,11 @@ export const DistrictMap: React.FC<DistrictMapProps> = ({
                         <span>{centre.name}</span>
                       </div>
                       <div className="text-[11px] text-slate-600">
-                        <p><span className="font-semibold">Block:</span> {blockMap.get(centre.blockId)}</p>
+                        <p><span className="font-semibold">Block:</span> {blockMap.get(centre.blockId) || centre.blockId}</p>
                         <p><span className="font-semibold">Capacity:</span> {centre.capacity} students ({centre.totalHalls} halls)</p>
                         <p><span className="font-semibold">GPS:</span> {centre.lat.toFixed(4)}, {centre.lng.toFixed(4)}</p>
                         {centre.clubbedSchoolIds && centre.clubbedSchoolIds.length > 0 && (
-                          <p><span className="font-semibold">Clubbed Schools:</span> {centre.clubbedSchoolIds.length} schools</p>
+                          <p><span className="font-semibold">Clubbed:</span> {centre.clubbedSchoolIds.length} schools</p>
                         )}
                       </div>
                       <div className="pt-1.5 border-t border-slate-100 flex justify-end">
@@ -322,7 +342,7 @@ export const DistrictMap: React.FC<DistrictMapProps> = ({
                 {showRadius && (
                   <Circle
                     center={[centre.lat, centre.lng]}
-                    radius={radiusKm * 1000} // in meters
+                    radius={radiusKm * 1000}
                     pathOptions={{
                       color: '#4338ca',
                       fillColor: '#6366f1',
@@ -346,7 +366,7 @@ export const DistrictMap: React.FC<DistrictMapProps> = ({
                       <span>{school.name}</span>
                     </div>
                     <div className="text-[11px] text-slate-600">
-                      <p><span className="font-semibold">Block:</span> {blockMap.get(school.blockId)}</p>
+                      <p><span className="font-semibold">Block:</span> {blockMap.get(school.blockId) || school.blockId}</p>
                       <p><span className="font-semibold">Type:</span> {school.type}</p>
                       <p><span className="font-semibold">12th Strength:</span> {school.studentStrength12th || 'N/A'}</p>
                       <p><span className="font-semibold">GPS:</span> {school.lat.toFixed(4)}, {school.lng.toFixed(4)}</p>
@@ -371,15 +391,15 @@ export const DistrictMap: React.FC<DistrictMapProps> = ({
           <div className="font-bold text-slate-800 border-b pb-1 text-[11px] uppercase tracking-wider">Map Legend</div>
           <div className="flex items-center space-x-2">
             <span className="w-3 h-3 rounded-full bg-red-600"></span>
-            <span className="text-slate-700 font-medium">Exam Centre ({centres.length})</span>
+            <span className="text-slate-700 font-medium">Exam Centres ({centres.length})</span>
           </div>
           <div className="flex items-center space-x-2">
             <span className="w-3 h-3 rounded-full bg-blue-600"></span>
-            <span className="text-slate-700 font-medium">School ({schools.length})</span>
+            <span className="text-slate-700 font-medium">Schools ({schools.length})</span>
           </div>
           <div className="flex items-center space-x-2">
             <span className="w-3 h-3 rounded-full border border-indigo-600 bg-indigo-100"></span>
-            <span className="text-slate-700 font-medium">10 km Permissible Radius</span>
+            <span className="text-slate-700 font-medium">10 km Radius Circle</span>
           </div>
         </div>
       </div>

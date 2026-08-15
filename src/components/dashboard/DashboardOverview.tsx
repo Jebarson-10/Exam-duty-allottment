@@ -13,15 +13,13 @@ import {
   School as SchoolIcon,
   Building2,
   Users,
-  CheckCircle2,
-  AlertTriangle,
+  UploadCloud,
   ArrowRight,
-  ShieldCheck,
   MapPin,
   Calendar,
   Sparkles,
-  Award,
   Layers,
+  AlertCircle,
 } from 'lucide-react';
 
 interface DashboardOverviewProps {
@@ -53,7 +51,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
   // Theory required = 2 per centre (1 Chief + 1 Dept Officer)
   const theoryRequired = centres.length * 2;
-  const theoryPercent = Math.min(100, Math.round((theoryAllotments.length / (theoryRequired || 1)) * 100));
+  const theoryPercent = centres.length > 0
+    ? Math.min(100, Math.round((theoryAllotments.length / (theoryRequired || 1)) * 100))
+    : 0;
 
   // Distance compliance (% <= 10 km)
   const compliantDistanceCount = cycleAllotments.filter((a) => a.distanceKm <= 10).length;
@@ -61,6 +61,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
     cycleAllotments.length > 0
       ? Math.round((compliantDistanceCount / cycleAllotments.length) * 100)
       : 100;
+
+  const isDatabaseEmpty = schools.length === 0 && centres.length === 0 && teachers.length === 0;
 
   return (
     <div className="space-y-6">
@@ -90,6 +92,28 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Empty Database Prompt if fresh installation */}
+      {isDatabaseEmpty && (
+        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-300 rounded-2xl p-6 shadow-sm flex flex-wrap items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2 text-emerald-900 font-bold text-sm">
+              <UploadCloud className="w-5 h-5 text-emerald-600" />
+              <span>Ready for Master Data Ingestion</span>
+            </div>
+            <p className="text-xs text-emerald-800 max-w-2xl">
+              Upload your district's official Excel spreadsheets (.xlsx, .xls, .csv) or official circular PDF files. The system will automatically map headers, parse teacher and school records, and <strong>geolocate them on OpenStreetMap automatically</strong>.
+            </p>
+          </div>
+          <button
+            onClick={() => onNavigateTab('ingest')}
+            className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1.5"
+          >
+            <UploadCloud className="w-4 h-4" />
+            <span>Upload Master Excel / PDF Files</span>
+          </button>
+        </div>
+      )}
 
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

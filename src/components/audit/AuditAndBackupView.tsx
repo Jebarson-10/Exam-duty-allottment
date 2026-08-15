@@ -4,17 +4,13 @@ import React, { useState } from 'react';
 import { AuditLog } from '../../types';
 import { db } from '../../services/db';
 import {
-  ShieldAlert,
   Database,
   Download,
   Upload,
-  RotateCcw,
+  Trash2,
   CheckCircle2,
-  Server,
   Cloud,
-  Layers,
   Activity,
-  Calendar,
 } from 'lucide-react';
 
 interface AuditAndBackupViewProps {
@@ -59,10 +55,10 @@ export const AuditAndBackupView: React.FC<AuditAndBackupViewProps> = ({
     reader.readAsText(file);
   };
 
-  const handleResetToSeed = () => {
-    if (window.confirm('Are you sure you want to reset all master data to the authentic Erode district initial seed state? This will clear recent drafts.')) {
-      db.resetToSeedData();
-      setStatusMsg({ success: true, text: 'Master database reset to initial Erode District seed state.' });
+  const handleClearDatabase = () => {
+    if (window.confirm('CAUTION: Are you sure you want to clear all school, centre, teacher, and allotment tables? This is irreversible unless you have a snapshot backup.')) {
+      db.clearAllData();
+      setStatusMsg({ success: true, text: 'Database master tables cleared successfully.' });
       onDataResetOrRestored();
       setTimeout(() => setStatusMsg(null), 4000);
     }
@@ -85,25 +81,25 @@ export const AuditAndBackupView: React.FC<AuditAndBackupViewProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div className="bg-white/5 border border-white/10 rounded-xl p-3">
             <div className="text-slate-400 text-[11px] font-medium">Cloudflare D1 Storage</div>
-            <div className="text-base font-bold text-sky-300 mt-0.5">~3.2 MB / 5.0 GB</div>
-            <div className="text-[10px] text-emerald-400 mt-1">0.06% of Free Ceiling</div>
+            <div className="text-base font-bold text-sky-300 mt-0.5">Active / 5.0 GB</div>
+            <div className="text-[10px] text-emerald-400 mt-1">&lt; 0.1% of Free Ceiling</div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-3">
             <div className="text-slate-400 text-[11px] font-medium">D1 Daily DB Reads</div>
-            <div className="text-base font-bold text-sky-300 mt-0.5">~420 / 5,000,000</div>
-            <div className="text-[10px] text-emerald-400 mt-1">0.008% of Free Ceiling</div>
+            <div className="text-base font-bold text-sky-300 mt-0.5">Active / 5,000,000</div>
+            <div className="text-[10px] text-emerald-400 mt-1">&lt; 0.01% of Free Ceiling</div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-3">
             <div className="text-slate-400 text-[11px] font-medium">D1 Daily DB Writes</div>
-            <div className="text-base font-bold text-sky-300 mt-0.5">~85 / 100,000</div>
-            <div className="text-[10px] text-emerald-400 mt-1">0.085% of Free Ceiling</div>
+            <div className="text-base font-bold text-sky-300 mt-0.5">Active / 100,000</div>
+            <div className="text-[10px] text-emerald-400 mt-1">&lt; 0.1% of Free Ceiling</div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-xl p-3">
             <div className="text-slate-400 text-[11px] font-medium">R2 Backup Storage</div>
-            <div className="text-base font-bold text-sky-300 mt-0.5">~12 MB / 10.0 GB</div>
+            <div className="text-base font-bold text-sky-300 mt-0.5">Snapshots / 10.0 GB</div>
             <div className="text-[10px] text-emerald-400 mt-1">Zero Egress Fees</div>
           </div>
         </div>
@@ -140,11 +136,11 @@ export const AuditAndBackupView: React.FC<AuditAndBackupViewProps> = ({
             </label>
 
             <button
-              onClick={handleResetToSeed}
+              onClick={handleClearDatabase}
               className="flex items-center space-x-1.5 px-3.5 py-2 bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-lg text-xs font-bold transition"
             >
-              <RotateCcw className="w-4 h-4" />
-              <span>Reset to Official Seed</span>
+              <Trash2 className="w-4 h-4" />
+              <span>Clear Database Tables</span>
             </button>
           </div>
         </div>

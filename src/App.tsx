@@ -15,6 +15,7 @@ import {
 } from './types';
 import { Header } from './components/common/Header';
 import { DashboardOverview } from './components/dashboard/DashboardOverview';
+import { UniversalDataIngestionView } from './components/master/UniversalDataIngestionView';
 import { DistrictMap } from './components/map/DistrictMap';
 import { TheoryAllotmentWizard } from './components/allotment/TheoryAllotmentWizard';
 import { PracticalAllotmentWizard } from './components/allotment/PracticalAllotmentWizard';
@@ -25,7 +26,6 @@ import { TeachersManager } from './components/master/TeachersManager';
 import { OfficialReportView } from './components/reports/OfficialReportView';
 import { AuditAndBackupView } from './components/audit/AuditAndBackupView';
 import { ManualOverrideModal } from './components/override/ManualOverrideModal';
-import { BulkImportExportModal } from './components/master/BulkImportExportModal';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -42,9 +42,8 @@ export function App() {
   const [batches, setBatches] = useState<PracticalBatch[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
-  // Modal States
+  // Modal State
   const [overrideAllotment, setOverrideAllotment] = useState<DutyAllotment | null>(null);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState<boolean>(false);
 
   // Load database on mount
   const refreshData = () => {
@@ -126,6 +125,16 @@ export function App() {
     }
   };
 
+  const handleBatchUpdateSchools = (updatedSchools: School[]) => {
+    db.batchSaveSchools(updatedSchools);
+    refreshData();
+  };
+
+  const handleBatchUpdateCentres = (updatedCentres: ExamCentre[]) => {
+    db.batchSaveCentres(updatedCentres);
+    refreshData();
+  };
+
   const handleSaveTheoryAllotments = (newAllotments: DutyAllotment[]) => {
     db.saveAllotments(newAllotments, 'Theory', activeCycle.id);
     refreshData();
@@ -150,22 +159,6 @@ export function App() {
     refreshData();
   };
 
-  // Bulk Import Handlers
-  const handleImportTeachers = (importedTeachers: Teacher[]) => {
-    importedTeachers.forEach((t) => db.saveTeacher(t));
-    refreshData();
-  };
-
-  const handleImportSchools = (importedSchools: School[]) => {
-    importedSchools.forEach((s) => db.saveSchool(s));
-    refreshData();
-  };
-
-  const handleImportCentres = (importedCentres: ExamCentre[]) => {
-    importedCentres.forEach((c) => db.saveCentre(c));
-    refreshData();
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Official Header */}
@@ -175,7 +168,7 @@ export function App() {
         examCycles={examCycles}
         activeCycle={activeCycle}
         onCycleChange={handleCycleChange}
-        onOpenBulkModal={() => setIsBulkModalOpen(true)}
+        onOpenIngestion={() => setActiveTab('ingest')}
       />
 
       {/* Main Workspace Container */}
@@ -192,6 +185,14 @@ export function App() {
           />
         )}
 
+        {activeTab === 'ingest' && (
+          <UniversalDataIngestionView
+            blocks={blocks}
+            onDataIngested={refreshData}
+            onNavigateToMap={() => setActiveTab('map')}
+          />
+        )}
+
         {activeTab === 'map' && (
           <DistrictMap
             schools={schools}
@@ -199,6 +200,8 @@ export function App() {
             blocks={blocks}
             onUpdateSchoolCoords={handleUpdateSchoolCoords}
             onUpdateCentreCoords={handleUpdateCentreCoords}
+            onBatchUpdateSchools={handleBatchUpdateSchools}
+            onBatchUpdateCentres={handleBatchUpdateCentres}
           />
         )}
 
@@ -302,21 +305,6 @@ export function App() {
         />
       )}
 
-      {/* Bulk Master Data Import Modal */}
-      {isBulkModalOpen && (
-        <BulkImportExportModal
-          isOpen={isBulkModalOpen}
-          onClose={() => setIsBulkModalOpen(false)}
-          schools={schools}
-          centres={centres}
-          teachers={teachers}
-          blocks={blocks}
-          onImportSchools={handleImportSchools}
-          onImportCentres={handleImportCentres}
-          onImportTeachers={handleImportTeachers}
-        />
-      )}
-
       {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-4 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-2">
@@ -324,9 +312,9 @@ export function App() {
             © 2026 Chief Educational Officer, Erode District · Department of School Education, Govt. of Tamil Nadu.
           </div>
           <div className="flex items-center space-x-3 text-[11px] text-slate-400">
-            <span>Serverless Infrastructure: Cloudflare Pages + D1 (SQLite) + R2</span>
+            <span>Production Serverless: Cloudflare Pages + D1 (SQLite) + R2</span>
             <span>·</span>
-            <span>Target Cost: Rs. 0/month</span>
+            <span>Monthly Cost: Rs. 0</span>
           </div>
         </div>
       </footer>

@@ -1,5 +1,5 @@
-// Unified Database & Storage Adapter for Erode CEO Office Exam Duty Allotment System
-// Dual mode: Cloudflare Pages D1 API + Local-First LocalStorage / IndexedDB
+// Clean Enterprise Database Adapter for Erode CEO Office Exam Duty Portal
+// Production storage layer without demo mock data. Initializes empty master registry with official blocks.
 
 import {
   Block,
@@ -12,98 +12,146 @@ import {
   PracticalBatch,
   AuditLog,
 } from '../types';
-import {
-  INITIAL_BLOCKS,
-  INITIAL_SCHOOLS,
-  INITIAL_CENTRES,
-  INITIAL_TEACHERS,
-  INITIAL_DUTY_HISTORY,
-  INITIAL_EXAM_CYCLES,
-} from './seedData';
+
+export const OFFICIAL_ERODE_BLOCKS: Block[] = [
+  { id: 'BLK-ERD', name: 'Erode Urban', code: '331001' },
+  { id: 'BLK-BHV', name: 'Bhavani', code: '331002' },
+  { id: 'BLK-GOBI', name: 'Gobichettipalayam', code: '331003' },
+  { id: 'BLK-PRD', name: 'Perundurai', code: '331004' },
+  { id: 'BLK-SAT', name: 'Sathyamangalam', code: '331005' },
+  { id: 'BLK-ANT', name: 'Anthiyur', code: '331006' },
+  { id: 'BLK-KOD', name: 'Kodumudi', code: '331007' },
+  { id: 'BLK-MOD', name: 'Modakkurichi', code: '331008' },
+  { id: 'BLK-NAM', name: 'Nambiyur', code: '331009' },
+  { id: 'BLK-THAL', name: 'Thalavadi', code: '331010' },
+];
+
+export const OFFICIAL_EXAM_CYCLES: ExamCycle[] = [
+  {
+    id: 'CYCLE-2026-HSE2',
+    label: 'HSE (+2) March 2026 State Board Public Examination',
+    standard: '12th',
+    startDate: '2026-03-02',
+    endDate: '2026-03-24',
+    isActive: true,
+  },
+  {
+    id: 'CYCLE-2026-HSE1',
+    label: 'HSE (+1) March 2026 State Board Public Examination',
+    standard: '11th',
+    startDate: '2026-03-05',
+    endDate: '2026-03-27',
+    isActive: false,
+  },
+  {
+    id: 'CYCLE-2026-SSLC',
+    label: 'SSLC (10th) April 2026 State Board Public Examination',
+    standard: '10th',
+    startDate: '2026-04-01',
+    endDate: '2026-04-18',
+    isActive: false,
+  },
+];
 
 const STORAGE_KEYS = {
-  BLOCKS: 'erode_exam_blocks',
-  SCHOOLS: 'erode_exam_schools',
-  CENTRES: 'erode_exam_centres',
-  TEACHERS: 'erode_exam_teachers',
-  HISTORY: 'erode_exam_history',
-  CYCLES: 'erode_exam_cycles',
-  ALLOTMENTS: 'erode_exam_allotments',
-  BATCHES: 'erode_exam_batches',
-  AUDIT: 'erode_exam_audit',
-  ACTIVE_CYCLE: 'erode_exam_active_cycle',
-  USE_REMOTE_API: 'erode_exam_use_remote_api',
+  BLOCKS: 'erode_exam_blocks_prod',
+  SCHOOLS: 'erode_exam_schools_prod',
+  CENTRES: 'erode_exam_centres_prod',
+  TEACHERS: 'erode_exam_teachers_prod',
+  HISTORY: 'erode_exam_history_prod',
+  CYCLES: 'erode_exam_cycles_prod',
+  ALLOTMENTS: 'erode_exam_allotments_prod',
+  BATCHES: 'erode_exam_batches_prod',
+  AUDIT: 'erode_exam_audit_prod',
+  ACTIVE_CYCLE: 'erode_exam_active_cycle_prod',
+};
+
+const memoryStore: Record<string, string> = {};
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+    } catch {}
+    return memoryStore[key] || null;
+  },
+  setItem: (key: string, val: string): void => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, val);
+        return;
+      }
+    } catch {}
+    memoryStore[key] = val;
+  },
 };
 
 class DatabaseService {
-  private isCloudflareAvailable: boolean = false;
-
   constructor() {
-    this.initLocalStorage();
+    this.initDatabase();
   }
 
-  private initLocalStorage() {
-    if (!localStorage.getItem(STORAGE_KEYS.BLOCKS)) {
-      localStorage.setItem(STORAGE_KEYS.BLOCKS, JSON.stringify(INITIAL_BLOCKS));
+  private initDatabase() {
+    if (!safeStorage.getItem(STORAGE_KEYS.BLOCKS)) {
+      safeStorage.setItem(STORAGE_KEYS.BLOCKS, JSON.stringify(OFFICIAL_ERODE_BLOCKS));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.SCHOOLS)) {
-      localStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(INITIAL_SCHOOLS));
+    if (!safeStorage.getItem(STORAGE_KEYS.SCHOOLS)) {
+      safeStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify([]));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CENTRES)) {
-      localStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(INITIAL_CENTRES));
+    if (!safeStorage.getItem(STORAGE_KEYS.CENTRES)) {
+      safeStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify([]));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.TEACHERS)) {
-      localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(INITIAL_TEACHERS));
+    if (!safeStorage.getItem(STORAGE_KEYS.TEACHERS)) {
+      safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify([]));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.HISTORY)) {
-      localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(INITIAL_DUTY_HISTORY));
+    if (!safeStorage.getItem(STORAGE_KEYS.HISTORY)) {
+      safeStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify([]));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.CYCLES)) {
-      localStorage.setItem(STORAGE_KEYS.CYCLES, JSON.stringify(INITIAL_EXAM_CYCLES));
+    if (!safeStorage.getItem(STORAGE_KEYS.CYCLES)) {
+      safeStorage.setItem(STORAGE_KEYS.CYCLES, JSON.stringify(OFFICIAL_EXAM_CYCLES));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.ALLOTMENTS)) {
-      localStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify([]));
+    if (!safeStorage.getItem(STORAGE_KEYS.ALLOTMENTS)) {
+      safeStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify([]));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.BATCHES)) {
-      localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify([]));
+    if (!safeStorage.getItem(STORAGE_KEYS.BATCHES)) {
+      safeStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify([]));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.AUDIT)) {
-      localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify([
+    if (!safeStorage.getItem(STORAGE_KEYS.AUDIT)) {
+      safeStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify([
         {
-          id: 'LOG-001',
+          id: 'LOG-INIT',
           userEmail: 'ceo.erode@tnschools.gov.in',
-          action: 'SYSTEM_INITIALIZATION',
-          details: 'Erode CEO Exam Duty Portal Initialized with District Master Data.',
+          action: 'PORTAL_INITIALIZED',
+          details: 'Erode District Exam Allotment Enterprise System Ready. Awaiting Master Data Ingestion.',
           timestamp: new Date().toISOString(),
         }
       ]));
     }
-    if (!localStorage.getItem(STORAGE_KEYS.ACTIVE_CYCLE)) {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_CYCLE, INITIAL_EXAM_CYCLES[0].id);
+    if (!safeStorage.getItem(STORAGE_KEYS.ACTIVE_CYCLE)) {
+      safeStorage.setItem(STORAGE_KEYS.ACTIVE_CYCLE, OFFICIAL_EXAM_CYCLES[0].id);
     }
   }
 
-  // --- Reset to Initial Seed Data ---
-  public resetToSeedData() {
-    localStorage.setItem(STORAGE_KEYS.BLOCKS, JSON.stringify(INITIAL_BLOCKS));
-    localStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(INITIAL_SCHOOLS));
-    localStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(INITIAL_CENTRES));
-    localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(INITIAL_TEACHERS));
-    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(INITIAL_DUTY_HISTORY));
-    localStorage.setItem(STORAGE_KEYS.CYCLES, JSON.stringify(INITIAL_EXAM_CYCLES));
-    localStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify([]));
-    localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify([]));
-    this.addAuditLog('MASTER_RESET', 'System data restored to official Erode district initial seed state.');
+  // --- Clear Database ---
+  public clearAllData() {
+    safeStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify([]));
+    safeStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify([]));
+    safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify([]));
+    safeStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify([]));
+    safeStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify([]));
+    safeStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify([]));
+    this.addAuditLog('DATABASE_CLEARED', 'All master tables and duty allotments cleared by Administrator.');
   }
 
   // --- Blocks ---
   public getBlocks(): Block[] {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.BLOCKS) || '[]');
+    return JSON.parse(safeStorage.getItem(STORAGE_KEYS.BLOCKS) || '[]');
   }
 
   // --- Schools ---
   public getSchools(): School[] {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.SCHOOLS) || '[]');
+    return JSON.parse(safeStorage.getItem(STORAGE_KEYS.SCHOOLS) || '[]');
   }
 
   public saveSchool(school: School): void {
@@ -114,19 +162,33 @@ class DatabaseService {
     } else {
       schools.push(school);
     }
-    localStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(schools));
-    this.addAuditLog('SAVE_SCHOOL', `Saved school ${school.name} (${school.id})`);
+    safeStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(schools));
+    this.addAuditLog('SAVE_SCHOOL', `Saved school: ${school.name} (${school.id})`);
+  }
+
+  public batchSaveSchools(newSchools: School[]): void {
+    const schools = this.getSchools();
+    for (const ns of newSchools) {
+      const idx = schools.findIndex((s) => s.id === ns.id || s.name.toLowerCase() === ns.name.toLowerCase());
+      if (idx >= 0) {
+        schools[idx] = { ...schools[idx], ...ns };
+      } else {
+        schools.push(ns);
+      }
+    }
+    safeStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(schools));
+    this.addAuditLog('BATCH_INGEST_SCHOOLS', `Ingested & mapped ${newSchools.length} schools.`);
   }
 
   public deleteSchool(schoolId: string): void {
     const schools = this.getSchools().filter((s) => s.id !== schoolId);
-    localStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(schools));
+    safeStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(schools));
     this.addAuditLog('DELETE_SCHOOL', `Deleted school ${schoolId}`);
   }
 
   // --- Centres ---
   public getCentres(): ExamCentre[] {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.CENTRES) || '[]');
+    return JSON.parse(safeStorage.getItem(STORAGE_KEYS.CENTRES) || '[]');
   }
 
   public saveCentre(centre: ExamCentre): void {
@@ -137,19 +199,33 @@ class DatabaseService {
     } else {
       centres.push(centre);
     }
-    localStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(centres));
-    this.addAuditLog('SAVE_CENTRE', `Saved centre ${centre.name} (${centre.id})`);
+    safeStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(centres));
+    this.addAuditLog('SAVE_CENTRE', `Saved centre: ${centre.name} (${centre.id})`);
+  }
+
+  public batchSaveCentres(newCentres: ExamCentre[]): void {
+    const centres = this.getCentres();
+    for (const nc of newCentres) {
+      const idx = centres.findIndex((c) => c.id === nc.id || c.name.toLowerCase() === nc.name.toLowerCase());
+      if (idx >= 0) {
+        centres[idx] = { ...centres[idx], ...nc };
+      } else {
+        centres.push(nc);
+      }
+    }
+    safeStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(centres));
+    this.addAuditLog('BATCH_INGEST_CENTRES', `Ingested & mapped ${newCentres.length} examination centres.`);
   }
 
   public deleteCentre(centreId: string): void {
     const centres = this.getCentres().filter((c) => c.id !== centreId);
-    localStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(centres));
+    safeStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(centres));
     this.addAuditLog('DELETE_CENTRE', `Deleted centre ${centreId}`);
   }
 
   // --- Teachers ---
   public getTeachers(): Teacher[] {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.TEACHERS) || '[]');
+    return JSON.parse(safeStorage.getItem(STORAGE_KEYS.TEACHERS) || '[]');
   }
 
   public saveTeacher(teacher: Teacher): void {
@@ -160,45 +236,59 @@ class DatabaseService {
     } else {
       teachers.push(teacher);
     }
-    localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(teachers));
-    this.addAuditLog('SAVE_TEACHER', `Saved teacher ${teacher.name} (${teacher.id})`);
+    safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(teachers));
+    this.addAuditLog('SAVE_TEACHER', `Saved faculty member: ${teacher.name} (${teacher.id})`);
+  }
+
+  public batchSaveTeachers(newTeachers: Teacher[]): void {
+    const teachers = this.getTeachers();
+    for (const nt of newTeachers) {
+      const idx = teachers.findIndex((t) => t.id === nt.id);
+      if (idx >= 0) {
+        teachers[idx] = { ...teachers[idx], ...nt };
+      } else {
+        teachers.push(nt);
+      }
+    }
+    safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(teachers));
+    this.addAuditLog('BATCH_INGEST_TEACHERS', `Ingested & mapped ${newTeachers.length} faculty members.`);
   }
 
   public deleteTeacher(teacherId: string): void {
     const teachers = this.getTeachers().filter((t) => t.id !== teacherId);
-    localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(teachers));
+    safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(teachers));
     this.addAuditLog('DELETE_TEACHER', `Deleted teacher ${teacherId}`);
   }
 
   // --- Duty History ---
   public getDutyHistory(): DutyHistory[] {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.HISTORY) || '[]');
+    return JSON.parse(safeStorage.getItem(STORAGE_KEYS.HISTORY) || '[]');
   }
 
   public saveDutyHistory(history: DutyHistory[]): void {
-    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
+    safeStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
   }
 
   // --- Exam Cycles ---
   public getExamCycles(): ExamCycle[] {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.CYCLES) || '[]');
+    return JSON.parse(safeStorage.getItem(STORAGE_KEYS.CYCLES) || '[]');
   }
 
   public getActiveExamCycle(): ExamCycle {
     const cycles = this.getExamCycles();
-    const activeId = localStorage.getItem(STORAGE_KEYS.ACTIVE_CYCLE);
-    const active = cycles.find((c) => c.id === activeId) || cycles[0] || INITIAL_EXAM_CYCLES[0];
+    const activeId = safeStorage.getItem(STORAGE_KEYS.ACTIVE_CYCLE);
+    const active = cycles.find((c) => c.id === activeId) || cycles[0] || OFFICIAL_EXAM_CYCLES[0];
     return active;
   }
 
   public setActiveExamCycle(cycleId: string): void {
-    localStorage.setItem(STORAGE_KEYS.ACTIVE_CYCLE, cycleId);
+    safeStorage.setItem(STORAGE_KEYS.ACTIVE_CYCLE, cycleId);
     this.addAuditLog('CHANGE_EXAM_CYCLE', `Active cycle switched to ${cycleId}`);
   }
 
   // --- Allotments ---
   public getAllotments(examCycleId?: string): DutyAllotment[] {
-    const all: DutyAllotment[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.ALLOTMENTS) || '[]');
+    const all: DutyAllotment[] = JSON.parse(safeStorage.getItem(STORAGE_KEYS.ALLOTMENTS) || '[]');
     if (examCycleId) {
       return all.filter((a) => a.examCycleId === examCycleId);
     }
@@ -208,11 +298,10 @@ class DatabaseService {
   public saveAllotments(newAllotments: DutyAllotment[], dutyType?: string, examCycleId?: string): void {
     let all = this.getAllotments();
     if (dutyType && examCycleId) {
-      // Replace only allotments for this specific duty type and cycle
       all = all.filter((a) => !(a.dutyType === dutyType && a.examCycleId === examCycleId));
     }
     all.push(...newAllotments);
-    localStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify(all));
+    safeStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify(all));
     this.addAuditLog(
       'SAVE_ALLOTMENTS',
       `Saved ${newAllotments.length} allotments for ${dutyType || 'Mixed'} in cycle ${examCycleId || 'all'}`
@@ -224,7 +313,7 @@ class DatabaseService {
     const index = all.findIndex((a) => a.id === allotment.id);
     if (index >= 0) {
       all[index] = { ...allotment, updatedAt: new Date().toISOString() };
-      localStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify(all));
+      safeStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify(all));
       this.addAuditLog(
         'MANUAL_OVERRIDE',
         `Manual override applied to allotment ${allotment.id} (Teacher: ${allotment.teacherName}, Centre: ${allotment.centreName})`
@@ -234,13 +323,13 @@ class DatabaseService {
 
   public deleteAllotment(allotmentId: string): void {
     const all = this.getAllotments().filter((a) => a.id !== allotmentId);
-    localStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify(all));
+    safeStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify(all));
     this.addAuditLog('DELETE_ALLOTMENT', `Removed allotment ${allotmentId}`);
   }
 
   // --- Practical Batches ---
   public getPracticalBatches(examCycleId?: string): PracticalBatch[] {
-    const all: PracticalBatch[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.BATCHES) || '[]');
+    const all: PracticalBatch[] = JSON.parse(safeStorage.getItem(STORAGE_KEYS.BATCHES) || '[]');
     if (examCycleId) {
       return all.filter((b) => b.examCycleId === examCycleId);
     }
@@ -251,12 +340,12 @@ class DatabaseService {
     let all = this.getPracticalBatches();
     all = all.filter((b) => b.examCycleId !== examCycleId);
     all.push(...batches);
-    localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(all));
+    safeStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(all));
   }
 
   // --- Audit Trail ---
   public getAuditLogs(): AuditLog[] {
-    return JSON.parse(localStorage.getItem(STORAGE_KEYS.AUDIT) || '[]');
+    return JSON.parse(safeStorage.getItem(STORAGE_KEYS.AUDIT) || '[]');
   }
 
   public addAuditLog(action: string, details: string, userEmail: string = 'admin@erode.tnschools.gov.in'): void {
@@ -269,14 +358,13 @@ class DatabaseService {
       timestamp: new Date().toISOString(),
     };
     logs.unshift(newLog);
-    // Keep last 500 logs
-    localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(logs.slice(0, 500)));
+    safeStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(logs.slice(0, 500)));
   }
 
   // --- Full District Backup / Snapshot ---
   public createBackupJSON(): string {
     const data = {
-      version: '1.0.0',
+      version: '2.0.0-PROD',
       exportedAt: new Date().toISOString(),
       district: 'Erode',
       blocks: this.getBlocks(),
@@ -295,19 +383,16 @@ class DatabaseService {
   public restoreFromJSON(jsonString: string): { success: boolean; message: string } {
     try {
       const data = JSON.parse(jsonString);
-      if (!data.schools || !data.centres || !data.teachers) {
-        return { success: false, message: 'Invalid backup file structure. Missing core master tables.' };
-      }
-      if (data.blocks) localStorage.setItem(STORAGE_KEYS.BLOCKS, JSON.stringify(data.blocks));
-      if (data.schools) localStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(data.schools));
-      if (data.centres) localStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(data.centres));
-      if (data.teachers) localStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(data.teachers));
-      if (data.dutyHistory) localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(data.dutyHistory));
-      if (data.examCycles) localStorage.setItem(STORAGE_KEYS.CYCLES, JSON.stringify(data.examCycles));
-      if (data.allotments) localStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify(data.allotments));
-      if (data.batches) localStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(data.batches));
+      if (data.blocks) safeStorage.setItem(STORAGE_KEYS.BLOCKS, JSON.stringify(data.blocks));
+      if (data.schools) safeStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(data.schools));
+      if (data.centres) safeStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(data.centres));
+      if (data.teachers) safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(data.teachers));
+      if (data.dutyHistory) safeStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(data.dutyHistory));
+      if (data.examCycles) safeStorage.setItem(STORAGE_KEYS.CYCLES, JSON.stringify(data.examCycles));
+      if (data.allotments) safeStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify(data.allotments));
+      if (data.batches) safeStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(data.batches));
 
-      this.addAuditLog('RESTORE_SNAPSHOT', `Database restored from backup timestamp ${data.exportedAt || 'Unknown'}`);
+      this.addAuditLog('RESTORE_SNAPSHOT', `Master database restored from backup timestamp ${data.exportedAt || 'Unknown'}`);
       return { success: true, message: 'District master database successfully restored!' };
     } catch (e: any) {
       return { success: false, message: `Failed to parse backup JSON: ${e.message}` };
