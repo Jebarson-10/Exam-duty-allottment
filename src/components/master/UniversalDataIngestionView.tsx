@@ -38,7 +38,7 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
   const [progressStatus, setProgressStatus] = useState<string>('');
   const [parsedData, setParsedData] = useState<ParsedDataset | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activePreviewTab, setActivePreviewTab] = useState<'TEACHERS' | 'SCHOOLS' | 'CENTRES'>('TEACHERS');
+  const [activePreviewTab, setActivePreviewTab] = useState<'TEACHERS' | 'SCHOOLS' | 'CENTRES' | 'HISTORY'>('TEACHERS');
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -62,7 +62,8 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
       }
 
       setParsedData(result);
-      if (result.teachers.length > 0) setActivePreviewTab('TEACHERS');
+      if (result.history.length > 0) setActivePreviewTab('HISTORY');
+      else if (result.teachers.length > 0) setActivePreviewTab('TEACHERS');
       else if (result.schools.length > 0) setActivePreviewTab('SCHOOLS');
       else if (result.centres.length > 0) setActivePreviewTab('CENTRES');
       setProgressStatus('');
@@ -85,6 +86,9 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
     }
     if (parsedData.teachers.length > 0) {
       db.batchSaveTeachers(parsedData.teachers);
+    }
+    if (parsedData.history.length > 0) {
+      db.batchSaveDutyHistory(parsedData.history);
     }
 
     setSaveSuccess(true);

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { School, ExamCentre, Teacher, Block, TeacherDesignation, Subject, SchoolType } from '../types';
+import { School, ExamCentre, Teacher, Block, TeacherDesignation, Subject, SchoolType, DutyHistory } from '../types';
 import { geocodeInstitution, batchGeocodeItems } from './geocodingService';
 
 // Safely obtain pdfjs-dist in both browser and Node.js environments
@@ -25,8 +25,9 @@ export interface ParsedDataset {
   schools: School[];
   centres: ExamCentre[];
   teachers: Teacher[];
+  history: DutyHistory[];
   rawRowCount: number;
-  detectedType: 'TEACHERS' | 'SCHOOLS' | 'CENTRES' | 'MIXED_MASTER';
+  detectedType: 'TEACHERS' | 'SCHOOLS' | 'CENTRES' | 'DUTY_HISTORY' | 'MIXED_MASTER';
   warnings: string[];
   geocodedCount: number;
 }
@@ -35,9 +36,13 @@ export interface ParsedDataset {
 const FIELD_ALIASES = {
   id: ['id', 'teacher id', 'staff id', 'emis', 'emis id', 'emis number', 'udise', 'udise code', 'school id', 'school code', 'centre id', 'centre code', 'center id', 'center code', 'sl no', 's no', 'slno', 'sno', 'code'],
   name: ['name', 'teacher name', 'staff name', 'faculty name', 'name of the teacher', 'name of the staff', 'school name', 'name of the school', 'centre name', 'center name', 'institution name', 'institution'],
-  designation: ['designation', 'post', 'cadre', 'designation of teacher', 'position', 'role'],
+  designation: ['designation', 'post', 'cadre', 'designation of teacher', 'position'],
+  role: ['role', 'allotted role', 'duty role', 'duty assigned', 'exam role', 'designation in exam'],
+  dutyType: ['duty type', 'type of duty', 'exam type', 'category of duty'],
+  year: ['year', 'exam year', 'academic year', 'session year'],
   subject: ['subject', 'handling subject', 'major', 'discipline', 'subject name', 'branch'],
   schoolName: ['school', 'parent school', 'school name', 'working school', 'present school', 'school address', 'current school', 'institution'],
+  centreName: ['centre', 'exam centre', 'allotted centre', 'centre name', 'center name', 'assigned centre', 'place of duty'],
   address: ['address', 'location', 'place', 'taluk', 'village', 'town', 'school address', 'centre address'],
   block: ['block', 'block name', 'educational block', 'taluk', 'zone'],
   seniority: ['seniority', 'seniority rank', 'district seniority', 'seniority no', 'seniority number', 'rank', 'seniority order'],
@@ -127,6 +132,7 @@ export class IngestionService {
     const allSchools: School[] = [];
     const allCentres: ExamCentre[] = [];
     const allTeachers: Teacher[] = [];
+    const allHistory: DutyHistory[] = [];
     const warnings: string[] = [];
     let rawRowCount = 0;
 
@@ -150,11 +156,40 @@ export class IngestionService {
       }
 
       // Determine entity type of this sheet
-      const isTeacherSheet = !!(headerMap.designation || headerMap.subject || headerMap.seniority);
-      const isCentreSheet = !!(headerMap.capacity || headerMap.clubbed || sheetName.toLowerCase().includes('centre'));
-      const isSchoolSheet = !isTeacherSheet && !isCentreSheet;
+      const isHistorySheet = !!((headerMap.year || headerMap.role) && (headerMap.centreName || headerMap.name || sheetName.toLowerCase().includes('history') || sheetName.toLowerCase().includes('duty')));
+      const isTeacherSheet = !isHistorySheet && !!(headerMap.designation || headerMap.subject || headerMap.seniority);
+      const isCentreSheet = !isHistorySheet && !isTeacherSheet && !!(headerMap.capacity || headerMap.clubbed || sheetName.toLowerCase().includes('centre'));
+      const isSchoolSheet = !isHistorySheet && !isTeacherSheet && !isCentreSheet;
 
-      if (isTeacherSheet) {
+      if (isHistorySheet) {
+        for (let i = 0; i < rawRows.length; i++) {
+          const row = rawRows[i];
+          const rawYearStr = String(row[headerMap.year] || '2025');
+          const yearMatch = rawYearStr.match(/\b(20\d\d)\b/);
+          const yearNum = yearMatch ? parseInt(yearMatch[1]) : 2025;
+          const academicYear = rawYearStr.includes('-') ? rawYearStr : `${yearNum - 1}-${yearNum}`;
+          const rawTName = row[headerMap.name] || row[headerMap.id] || `Teacher ${i + 1}`;
+          const rawTId = row[headerMap.id] || `TCH-${rawTName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}`;
+          const rawCName = row[headerMap.centreName] || row[headerMap.schoolName] || `Exam Centre ${i + 1}`;
+          const rawCId = `CTR-${rawCName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}`;
+          const rawRole = (row[headerMap.role] || 'Hall Invigilator') as any;
+          const rawDutyType = (row[headerMap.dutyType] || 'Theory') as any;
+
+          allHistory.push({
+            id: `HIST-IMP-${Date.now()}-${i + 1}`,
+            teacherId: String(rawTId),
+            teacherName: String(rawTName),
+            year: yearNum,
+            academicYear,
+            dutyType: rawDutyType,
+            centreId: String(rawCId),
+            centreName: String(rawCName),
+            role: rawRole,
+            allotmentDate: `${yearNum}-03-10`,
+            notes: 'Imported historical allotment archive',
+          });
+        }
+      } else if (isTeacherSheet) {
         for (let i = 0; i < rawRows.length; i++) {
           const row = rawRows[i];
           const rawName = row[headerMap.name] || `Teacher ${i + 1}`;
@@ -268,8 +303,9 @@ export class IngestionService {
     const geocodedCentres = await batchGeocodeItems(allCentres);
     geocodedCount = geocodedSchools.length + geocodedCentres.length;
 
-    let detectedType: 'TEACHERS' | 'SCHOOLS' | 'CENTRES' | 'MIXED_MASTER' = 'MIXED_MASTER';
-    if (allTeachers.length > 0 && allCentres.length === 0 && allSchools.length === 0) detectedType = 'TEACHERS';
+    let detectedType: 'TEACHERS' | 'SCHOOLS' | 'CENTRES' | 'DUTY_HISTORY' | 'MIXED_MASTER' = 'MIXED_MASTER';
+    if (allHistory.length > 0 && allTeachers.length === 0) detectedType = 'DUTY_HISTORY';
+    else if (allTeachers.length > 0 && allCentres.length === 0 && allSchools.length === 0) detectedType = 'TEACHERS';
     else if (allCentres.length > 0 && allTeachers.length === 0) detectedType = 'CENTRES';
     else if (allSchools.length > 0 && allTeachers.length === 0) detectedType = 'SCHOOLS';
 
@@ -277,6 +313,7 @@ export class IngestionService {
       schools: geocodedSchools,
       centres: geocodedCentres,
       teachers: allTeachers,
+      history: allHistory,
       rawRowCount,
       detectedType,
       warnings,
@@ -368,6 +405,7 @@ export class IngestionService {
       schools: geocodedSchools,
       centres: [],
       teachers: allTeachers,
+      history: [],
       rawRowCount: allTeachers.length,
       detectedType: 'TEACHERS',
       warnings: allTeachers.length === 0 ? ['No tabular teacher patterns detected in PDF. Please ensure standard PDF document.'] : [],

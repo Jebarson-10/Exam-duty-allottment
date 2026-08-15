@@ -260,13 +260,112 @@ class DatabaseService {
     this.addAuditLog('DELETE_TEACHER', `Deleted teacher ${teacherId}`);
   }
 
-  // --- Duty History ---
+  // --- Duty History Ledger ---
   public getDutyHistory(): DutyHistory[] {
     return JSON.parse(safeStorage.getItem(STORAGE_KEYS.HISTORY) || '[]');
   }
 
   public saveDutyHistory(history: DutyHistory[]): void {
     safeStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
+  }
+
+  public saveSingleDutyHistory(item: DutyHistory): void {
+    const history = this.getDutyHistory();
+    const idx = history.findIndex((h) => h.id === item.id);
+    if (idx >= 0) {
+      history[idx] = item;
+    } else {
+      history.unshift(item);
+    }
+    this.saveDutyHistory(history);
+    this.addAuditLog('SAVE_DUTY_HISTORY', `Logged duty record for ${item.teacherName || item.teacherId}`);
+  }
+
+  public batchSaveDutyHistory(newHistory: DutyHistory[]): void {
+    const history = this.getDutyHistory();
+    for (const nh of newHistory) {
+      const idx = history.findIndex(
+        (h) =>
+          h.id === nh.id ||
+          (h.teacherId === nh.teacherId &&
+            h.year === nh.year &&
+            h.centreId === nh.centreId &&
+            h.dutyType === nh.dutyType)
+      );
+      if (idx >= 0) {
+        history[idx] = { ...history[idx], ...nh };
+      } else {
+        history.unshift(nh);
+      }
+    }
+    this.saveDutyHistory(history);
+    this.addAuditLog('BATCH_INGEST_HISTORY', `Ingested ${newHistory.length} historical duty records.`);
+  }
+
+  public deleteDutyHistory(historyId: string): void {
+    const history = this.getDutyHistory().filter((h) => h.id !== historyId);
+    this.saveDutyHistory(history);
+    this.addAuditLog('DELETE_DUTY_HISTORY', `Deleted duty history record ${historyId}`);
+  }
+
+  /**
+   * Automatically synchronizes active allotments into the persistent Multi-Year Duty History ledger.
+   */
+  public syncAllotmentsToHistory(examCycleId?: string): void {
+    const cycles = this.getExamCycles();
+    const cycleMap = new Map(cycles.map((c) => [c.id, c]));
+    const allotments = this.getAllotments(examCycleId);
+    const history = this.getDutyHistory();
+
+    let addedOrUpdatedCount = 0;
+
+    for (const a of allotments) {
+      const cycle = cycleMap.get(a.examCycleId);
+      let year = new Date().getFullYear();
+      if (cycle?.startDate) {
+        year = parseInt(cycle.startDate.split('-')[0]);
+      } else if (a.allotmentDate) {
+        year = parseInt(a.allotmentDate.split('-')[0]);
+      } else if (a.examCycleId) {
+        const match = a.examCycleId.match(/\b(20\d\d)\b/);
+        if (match) year = parseInt(match[1]);
+      }
+      const academicYear = `${year - 1}-${year}`;
+
+      const historyId = `HIST-${a.id}`;
+      const existingIdx = history.findIndex(
+        (h) =>
+          h.id === historyId ||
+          (h.teacherId === a.teacherId &&
+            h.examCycleId === a.examCycleId &&
+            h.dutyType === a.dutyType)
+      );
+
+      const entry: DutyHistory = {
+        id: historyId,
+        teacherId: a.teacherId,
+        teacherName: a.teacherName,
+        year,
+        academicYear,
+        examCycleId: a.examCycleId,
+        dutyType: a.dutyType,
+        centreId: a.centreId,
+        centreName: a.centreName,
+        role: a.role,
+        allotmentDate: a.allotmentDate || new Date().toISOString(),
+        notes: `Generated for cycle ${cycle?.label || a.examCycleId}`,
+      };
+
+      if (existingIdx >= 0) {
+        history[existingIdx] = entry;
+      } else {
+        history.unshift(entry);
+      }
+      addedOrUpdatedCount++;
+    }
+
+    this.saveDutyHistory(history);
+    this.addAuditLog('SYNC_DUTY_HISTORY', `Synchronized ${addedOrUpdatedCount} allotments into persistent Duty History Ledger.`);
   }
 
   // --- Exam Cycles ---
@@ -306,6 +405,9 @@ class DatabaseService {
       'SAVE_ALLOTMENTS',
       `Saved ${newAllotments.length} allotments for ${dutyType || 'Mixed'} in cycle ${examCycleId || 'all'}`
     );
+
+    // Automatically synchronize allotments into persistent Multi-Year Duty History
+    this.syncAllotmentsToHistory(examCycleId);
   }
 
   public updateSingleAllotment(allotment: DutyAllotment): void {
@@ -318,6 +420,9 @@ class DatabaseService {
         'MANUAL_OVERRIDE',
         `Manual override applied to allotment ${allotment.id} (Teacher: ${allotment.teacherName}, Centre: ${allotment.centreName})`
       );
+
+      // Automatically update history
+      this.syncAllotmentsToHistory(allotment.examCycleId);
     }
   }
 

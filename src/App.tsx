@@ -16,6 +16,7 @@ import {
 import { Header } from './components/common/Header';
 import { DashboardOverview } from './components/dashboard/DashboardOverview';
 import { UniversalDataIngestionView } from './components/master/UniversalDataIngestionView';
+import { DutyHistoryManager } from './components/history/DutyHistoryManager';
 import { DistrictMap } from './components/map/DistrictMap';
 import { TheoryAllotmentWizard } from './components/allotment/TheoryAllotmentWizard';
 import { PracticalAllotmentWizard } from './components/allotment/PracticalAllotmentWizard';
@@ -190,6 +191,16 @@ export function App() {
             blocks={blocks}
             onDataIngested={refreshData}
             onNavigateToMap={() => setActiveTab('map')}
+          />
+        )}
+
+        {activeTab === 'history' && (
+          <DutyHistoryManager
+            history={dutyHistory}
+            teachers={teachers}
+            centres={centres}
+            activeCycle={activeCycle}
+            onHistoryUpdated={refreshData}
           />
         )}
 

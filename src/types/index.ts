@@ -98,11 +98,17 @@ export interface Teacher {
 export interface DutyHistory {
   id: string;
   teacherId: string;
-  year: number;
+  teacherName?: string;
+  year: number; // e.g. 2024, 2025, 2026
+  academicYear?: string; // e.g. '2025-2026'
+  examCycleId?: string;
   dutyType: DutyType;
   centreId: string;
+  centreName?: string;
   role: DutyRole;
   subject?: Subject;
+  allotmentDate?: string;
+  notes?: string;
 }
 
 export interface ExamCycle {
@@ -139,6 +145,7 @@ export interface Hall {
 
 export interface DutyAllotment {
   id: string;
+  examCycleId: string;
   teacherId: string;
   teacherName?: string;
   teacherDesignation?: TeacherDesignation;
@@ -146,19 +153,20 @@ export interface DutyAllotment {
   teacherSubject?: Subject;
   centreId: string;
   centreName?: string;
-  dutyType: DutyType;
   role: DutyRole;
+  dutyType: DutyType;
   subject?: Subject;
-  examCycleId: string;
-  date?: string;
-  session?: 'FN' | 'AN' | 'Full Day';
   hallNumber?: number;
+  allotmentDate?: string;
+  date?: string;
+  dates?: string[];
+  session?: 'FN' | 'AN' | 'BOTH' | 'Full Day';
   distanceKm: number;
   isManualOverride: boolean;
   overrideReason?: string;
   status: 'Draft' | 'Published' | 'Dispatched';
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AuditLog {

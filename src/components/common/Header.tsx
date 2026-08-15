@@ -15,6 +15,7 @@ import {
   FileText,
   Activity,
   Calendar,
+  History,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -37,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'ingest', label: 'Smart File Ingestion (Excel/PDF)', icon: UploadCloud },
+    { id: 'history', label: 'Duty History Ledger', icon: History },
     { id: 'map', label: 'GPS Coordinate Capture', icon: MapPin },
     { id: 'theory', label: 'Theory Allotment', icon: Sparkles },
     { id: 'practical', label: 'Practical Allotment', icon: FlaskConical },
