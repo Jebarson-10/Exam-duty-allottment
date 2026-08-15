@@ -77,7 +77,9 @@ export function generateHallInvigilationAllotment(
     // Sum students from all clubbed schools, or use centre capacity
     let totalStudents = centre.capacity;
     if (centre.clubbedSchoolIds && centre.clubbedSchoolIds.length > 0) {
-      const clubbedTotal = centre.clubbedSchoolIds.reduce((sum, schId) => {
+      const hostSchool = schoolMap.get(centre.schoolId!);
+      let clubbedTotal = hostSchool ? (hostSchool.studentStrength12th || hostSchool.studentStrength10th || 60) : 0;
+      clubbedTotal += centre.clubbedSchoolIds.reduce((sum, schId) => {
         const sch = schoolMap.get(schId);
         return sum + (sch?.studentStrength12th || sch?.studentStrength10th || 60);
       }, 0);
@@ -136,10 +138,13 @@ export function generateHallInvigilationAllotment(
       false
     );
 
+    const availableCandidates = sortedCandidates.filter(t => !assignedTeacherIds.has(t.id));
+    let candidateIndex = 0;
+
     // Assign regular hall invigilators
     let allottedForThisCentre = 0;
     for (let h = 1; h <= regularHalls; h++) {
-      const candidate = sortedCandidates.find((t) => !assignedTeacherIds.has(t.id));
+      const candidate = availableCandidates[candidateIndex++];
       if (candidate) {
         const dist = candidates.find((c) => c.teacher.id === candidate.id)?.distanceKm || 0;
         assignedTeacherIds.add(candidate.id);
@@ -179,7 +184,7 @@ export function generateHallInvigilationAllotment(
 
     // Assign 10% standby invigilators
     for (let s = 1; s <= standbyCount; s++) {
-      const candidate = sortedCandidates.find((t) => !assignedTeacherIds.has(t.id));
+      const candidate = availableCandidates[candidateIndex++];
       if (candidate) {
         const dist = candidates.find((c) => c.teacher.id === candidate.id)?.distanceKm || 0;
         assignedTeacherIds.add(candidate.id);

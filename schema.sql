@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS schools (
     address TEXT,
     lat REAL NOT NULL,
     lng REAL NOT NULL,
-    block_id TEXT NOT NULL REFERENCES blocks(id),
+    block_id TEXT NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
     type TEXT NOT NULL DEFAULT 'Government' -- Government, Aided, Matriculation, etc.
 );
 
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS centres (
     address TEXT,
     lat REAL NOT NULL,
     lng REAL NOT NULL,
-    block_id TEXT NOT NULL REFERENCES blocks(id),
+    block_id TEXT NOT NULL REFERENCES blocks(id) ON DELETE CASCADE,
     capacity INTEGER NOT NULL DEFAULT 300,
     clubbed_school_ids TEXT -- JSON array of school IDs sharing this centre
 );
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS centres (
 CREATE TABLE IF NOT EXISTS teachers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
-    school_id TEXT NOT NULL REFERENCES schools(id),
+    school_id TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
     subject TEXT NOT NULL,
     designation TEXT NOT NULL, -- Principal, Headmaster, PG Assistant, BEd Assistant, etc.
     seniority_rank INTEGER NOT NULL DEFAULT 9999,
@@ -49,10 +49,10 @@ CREATE TABLE IF NOT EXISTS teachers (
 -- Past Duty History (for 2-year no-repeat & fairness tracking)
 CREATE TABLE IF NOT EXISTS duty_history (
     id TEXT PRIMARY KEY,
-    teacher_id TEXT NOT NULL REFERENCES teachers(id),
+    teacher_id TEXT NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
     year INTEGER NOT NULL,
     duty_type TEXT NOT NULL, -- Theory, Practical, Hall Invigilation
-    centre_id TEXT NOT NULL REFERENCES centres(id),
+    centre_id TEXT NOT NULL REFERENCES centres(id) ON DELETE CASCADE,
     role TEXT NOT NULL, -- Chief Superintendent, Department Officer, Internal Examiner, External Examiner, Invigilator, Standby
     subject TEXT
 );
@@ -70,36 +70,36 @@ CREATE TABLE IF NOT EXISTS exam_cycles (
 -- Practical Batches
 CREATE TABLE IF NOT EXISTS batches (
     id TEXT PRIMARY KEY,
-    school_id TEXT NOT NULL REFERENCES schools(id),
-    centre_id TEXT REFERENCES centres(id),
+    school_id TEXT NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+    centre_id TEXT REFERENCES centres(id) ON DELETE CASCADE,
     subject TEXT NOT NULL,
     size INTEGER NOT NULL DEFAULT 50,
-    session TEXT NOT NULL, -- FN (Morning) / AN (Afternoon)
+    session TEXT NOT NULL, -- FN / AN / BOTH / Full Day
     day INTEGER NOT NULL DEFAULT 1,
-    exam_cycle_id TEXT NOT NULL REFERENCES exam_cycles(id)
+    exam_cycle_id TEXT NOT NULL REFERENCES exam_cycles(id) ON DELETE CASCADE
 );
 
 -- Halls Configuration per Centre
 CREATE TABLE IF NOT EXISTS halls (
     id TEXT PRIMARY KEY,
-    centre_id TEXT NOT NULL REFERENCES centres(id),
+    centre_id TEXT NOT NULL REFERENCES centres(id) ON DELETE CASCADE,
     hall_number INTEGER NOT NULL,
     capacity INTEGER NOT NULL DEFAULT 20,
     standby INTEGER NOT NULL DEFAULT 0,
-    exam_cycle_id TEXT NOT NULL REFERENCES exam_cycles(id)
+    exam_cycle_id TEXT NOT NULL REFERENCES exam_cycles(id) ON DELETE CASCADE
 );
 
 -- Generated Duty Allotments
 CREATE TABLE IF NOT EXISTS duty_allotment (
     id TEXT PRIMARY KEY,
-    teacher_id TEXT NOT NULL REFERENCES teachers(id),
-    centre_id TEXT NOT NULL REFERENCES centres(id),
+    teacher_id TEXT NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+    centre_id TEXT NOT NULL REFERENCES centres(id) ON DELETE CASCADE,
     duty_type TEXT NOT NULL, -- Theory, Practical, Hall Invigilation
     role TEXT NOT NULL, -- Chief Superintendent, Department Officer, Internal Examiner, External Examiner, Invigilator, Standby
     subject TEXT,
-    exam_cycle_id TEXT NOT NULL REFERENCES exam_cycles(id),
+    exam_cycle_id TEXT NOT NULL REFERENCES exam_cycles(id) ON DELETE CASCADE,
     date TEXT,
-    session TEXT, -- FN / AN / All Day
+    session TEXT, -- FN / AN / BOTH / Full Day
     status TEXT NOT NULL DEFAULT 'Draft', -- Draft, Published, Dispatched
     hall_number INTEGER,
     is_manual_override INTEGER NOT NULL DEFAULT 0,

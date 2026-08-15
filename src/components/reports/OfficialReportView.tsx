@@ -33,6 +33,7 @@ export const OfficialReportView: React.FC<OfficialReportViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [dutyTypeFilter, setDutyTypeFilter] = useState<'ALL' | 'Theory' | 'Practical' | 'Hall Invigilation'>('ALL');
   const [selectedAllotmentForPreview, setSelectedAllotmentForPreview] = useState<DutyAllotment | null>(null);
+  const [missingCentreWarnings, setMissingCentreWarnings] = useState<number>(0);
 
   const teacherMap = new Map(teachers.map((t) => [t.id, t]));
   const centreMap = new Map(centres.map((c) => [c.id, c]));
@@ -69,17 +70,14 @@ export const OfficialReportView: React.FC<OfficialReportViewProps> = ({
 
   const handleGenerateIndividualOrderPDF = (allotment: DutyAllotment) => {
     const teacher = teacherMap.get(allotment.teacherId);
-    const centre = centreMap.get(allotment.centreId) || {
-      id: allotment.centreId,
-      name: allotment.centreName || 'Exam Centre',
-      address: 'Erode District',
-      lat: 11.34,
-      lng: 77.72,
-      blockId: 'BLK-ERD',
-      capacity: 300,
-      totalHalls: 15,
-      clubbedSchoolIds: [],
-    };
+    const centre = centreMap.get(allotment.centreId);
+    
+    if (!centre) {
+      console.warn(`Skipping allotment ${allotment.id}: Centre ${allotment.centreId} not found.`);
+      setMissingCentreWarnings(prev => prev + 1);
+      return;
+    }
+
     const school = teacher ? schoolMap.get(teacher.schoolId) : null;
 
     if (teacher && school) {
@@ -134,6 +132,16 @@ export const OfficialReportView: React.FC<OfficialReportViewProps> = ({
           </button>
         </div>
       </div>
+
+      {missingCentreWarnings > 0 && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl shadow-sm text-sm font-semibold flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="w-5 h-5 text-amber-600" />
+            <span>Warning: {missingCentreWarnings} allotment(s) skipped because the corresponding exam centre data is missing.</span>
+          </div>
+          <button onClick={() => setMissingCentreWarnings(0)} className="text-amber-600 hover:text-amber-800 underline text-xs">Dismiss</button>
+        </div>
+      )}
 
       {/* Filter & Search */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">

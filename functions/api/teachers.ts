@@ -25,7 +25,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
-    const teacher: any = await context.request.json();
+    let teacher: any;
+    try {
+      teacher = await context.request.json();
+    } catch (err: any) {
+      return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
     await context.env.DB.prepare(`
       INSERT INTO teachers (id, name, school_id, subject, designation, seniority_rank, date_of_joining, home_lat, home_lng, is_exempted, exemption_reason, phone, email)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -48,10 +53,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       teacher.schoolId || teacher.school_id,
       teacher.subject,
       teacher.designation,
-      teacher.seniorityRank || teacher.seniority_rank || 999,
+      teacher.seniorityRank ?? teacher.seniority_rank ?? 999,
       teacher.dateOfJoining || teacher.date_of_joining,
-      teacher.homeLat || teacher.home_lat || null,
-      teacher.homeLng || teacher.home_lng || null,
+      teacher.homeLat ?? teacher.home_lat ?? null,
+      teacher.homeLng ?? teacher.home_lng ?? null,
       teacher.isExempted ? 1 : 0,
       teacher.exemptionReason || '',
       teacher.phone || '',

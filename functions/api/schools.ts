@@ -8,7 +8,14 @@ interface Env {
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     const { results } = await context.env.DB.prepare('SELECT * FROM schools ORDER BY name ASC').all();
-    return Response.json(results);
+    const mapped = results.map((r: any) => ({
+      ...r,
+      blockId: r.block_id,
+      studentStrength10th: r.student_strength_10th,
+      studentStrength11th: r.student_strength_11th,
+      studentStrength12th: r.student_strength_12th,
+    }));
+    return Response.json(mapped);
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });
   }

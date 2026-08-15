@@ -29,3 +29,12 @@ dist-ssr
 
 # Testing
 coverage
+
+# Security-critical entries
+.env
+.env.*
+*.env
+.d1/
+.r2/
+.wrangler/
+*.tsbuildinfo

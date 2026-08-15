@@ -7,10 +7,20 @@ interface Env {
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     const { results } = await context.env.DB.prepare('SELECT * FROM centres ORDER BY name ASC').all();
-    const parsed = results.map((r: any) => ({
-      ...r,
-      clubbedSchoolIds: r.clubbed_school_ids ? JSON.parse(r.clubbed_school_ids) : [],
-    }));
+    const parsed = results.map((r: any) => {
+      let clubbedSchoolIds = [];
+      if (r.clubbed_school_ids) {
+        try {
+          clubbedSchoolIds = JSON.parse(r.clubbed_school_ids);
+        } catch (e) {
+          clubbedSchoolIds = [];
+        }
+      }
+      return {
+        ...r,
+        clubbedSchoolIds,
+      };
+    });
     return Response.json(parsed);
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });

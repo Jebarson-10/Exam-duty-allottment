@@ -114,9 +114,10 @@ export function generateTheoryDutyAllotment(
       }
 
       const teacherSchool = schoolMap.get(teacher.schoolId);
-      const schoolCoords = teacherSchool
-        ? { lat: teacherSchool.lat, lng: teacherSchool.lng }
-        : { lat: 11.341, lng: 77.7172 };
+      if (!teacherSchool?.lat || !teacherSchool?.lng || !centre.lat || !centre.lng) {
+        return { eligible: false, distanceKm: 9999 };
+      }
+      const schoolCoords = { lat: teacherSchool.lat, lng: teacherSchool.lng };
       const homeCoords =
         teacher.homeLat && teacher.homeLng
           ? { lat: teacher.homeLat, lng: teacher.homeLng }
@@ -186,21 +187,31 @@ export function generateTheoryDutyAllotment(
 
     // Fallback 2: Relax distance if still unassigned
     if (!selectedChief && config.allowDistanceRelaxationIfShortage) {
+      const eligibleRelaxed: { teacher: Teacher; distanceKm: number }[] = [];
       for (const t of [...hmAndPrincipals, ...pgTeachers]) {
         const res = evaluateCandidate(t, 25); // Relax to 25km
         if (res.eligible) {
-          selectedChief = t;
-          selectedChiefDist = res.distanceKm;
-          violations.push({
-            code: 'DISTANCE_RELAXED',
-            severity: 'warning',
-            message: `Centre "${centre.name}" required distance relaxation (>10km: ${selectedChiefDist}km) to assign Chief Superintendent ${selectedChief.name}.`,
-            teacherId: selectedChief.id,
-            centreId: centre.id,
-            distanceKm: selectedChiefDist,
-          });
-          break;
+          eligibleRelaxed.push({ teacher: t, distanceKm: res.distanceKm });
         }
+      }
+      
+      const sortedRelaxed = sortTeachersByFairness(
+        eligibleRelaxed.map((e) => e.teacher),
+        fairnessMap,
+        true
+      );
+      
+      if (sortedRelaxed.length > 0) {
+        selectedChief = sortedRelaxed[0];
+        selectedChiefDist = eligibleRelaxed.find((e) => e.teacher.id === selectedChief!.id)?.distanceKm || 0;
+        violations.push({
+          code: 'DISTANCE_RELAXED',
+          severity: 'warning',
+          message: `Centre "${centre.name}" required distance relaxation (>10km: ${selectedChiefDist}km) to assign Chief Superintendent ${selectedChief.name}.`,
+          teacherId: selectedChief.id,
+          centreId: centre.id,
+          distanceKm: selectedChiefDist,
+        });
       }
     }
 
@@ -258,21 +269,31 @@ export function generateTheoryDutyAllotment(
       selectedDeptOfficerDist =
         eligibleDeptOfficers.find((e) => e.teacher.id === selectedDeptOfficer?.id)?.distanceKm || 0;
     } else if (config.allowDistanceRelaxationIfShortage) {
+      const eligibleRelaxedDO: { teacher: Teacher; distanceKm: number }[] = [];
       for (const t of pgTeachers) {
         const res = evaluateCandidate(t, 25);
         if (res.eligible) {
-          selectedDeptOfficer = t;
-          selectedDeptOfficerDist = res.distanceKm;
-          violations.push({
-            code: 'DISTANCE_RELAXED_DO',
-            severity: 'warning',
-            message: `Department Officer ${selectedDeptOfficer.name} assigned with distance relaxation (${selectedDeptOfficerDist}km) for centre "${centre.name}".`,
-            teacherId: selectedDeptOfficer.id,
-            centreId: centre.id,
-            distanceKm: selectedDeptOfficerDist,
-          });
-          break;
+          eligibleRelaxedDO.push({ teacher: t, distanceKm: res.distanceKm });
         }
+      }
+      
+      const sortedRelaxedDO = sortTeachersByFairness(
+        eligibleRelaxedDO.map((e) => e.teacher),
+        fairnessMap,
+        true
+      );
+      
+      if (sortedRelaxedDO.length > 0) {
+        selectedDeptOfficer = sortedRelaxedDO[0];
+        selectedDeptOfficerDist = eligibleRelaxedDO.find((e) => e.teacher.id === selectedDeptOfficer!.id)?.distanceKm || 0;
+        violations.push({
+          code: 'DISTANCE_RELAXED_DO',
+          severity: 'warning',
+          message: `Department Officer ${selectedDeptOfficer.name} assigned with distance relaxation (${selectedDeptOfficerDist}km) for centre "${centre.name}".`,
+          teacherId: selectedDeptOfficer.id,
+          centreId: centre.id,
+          distanceKm: selectedDeptOfficerDist,
+        });
       }
     }
 

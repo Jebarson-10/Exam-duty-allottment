@@ -125,9 +125,14 @@ export class IngestionService {
     fileBuffer: ArrayBuffer | string,
     existingBlocks: Block[] = []
   ): Promise<ParsedDataset> {
-    const wb = typeof fileBuffer === 'string'
-      ? XLSX.read(fileBuffer, { type: 'binary' })
-      : XLSX.read(new Uint8Array(fileBuffer), { type: 'array' });
+    let wb;
+    try {
+      wb = typeof fileBuffer === 'string'
+        ? XLSX.read(fileBuffer, { type: 'binary' })
+        : XLSX.read(new Uint8Array(fileBuffer), { type: 'array' });
+    } catch (error: any) {
+      return { teachers: [], schools: [], centres: [], history: [], rawRowCount: 0, detectedType: 'MIXED_MASTER', warnings: ['Failed to parse file: ' + error.message], geocodedCount: 0 };
+    }
 
     const allSchools: School[] = [];
     const allCentres: ExamCentre[] = [];
@@ -143,6 +148,10 @@ export class IngestionService {
       const ws = wb.Sheets[sheetName];
       const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
       if (rawRows.length === 0) continue;
+      if (rawRows.length > 50000) {
+        warnings.push(`Sheet "${sheetName}" has ${rawRows.length} rows — exceeds 50,000 row limit. Please split the file.`);
+        continue;
+      }
 
       rawRowCount += rawRows.length;
       const firstRow = rawRows[0];
@@ -160,6 +169,11 @@ export class IngestionService {
       const isTeacherSheet = !isHistorySheet && !!(headerMap.designation || headerMap.subject || headerMap.seniority);
       const isCentreSheet = !isHistorySheet && !isTeacherSheet && !!(headerMap.capacity || headerMap.clubbed || sheetName.toLowerCase().includes('centre'));
       const isSchoolSheet = !isHistorySheet && !isTeacherSheet && !isCentreSheet;
+
+      if (!headerMap.name && !headerMap.id) {
+        warnings.push(`Sheet "${sheetName}" is missing required columns: name/staff_name. Skipped.`);
+        continue;
+      }
 
       if (isHistorySheet) {
         for (let i = 0; i < rawRows.length; i++) {
@@ -197,7 +211,8 @@ export class IngestionService {
           const rawSchool = row[headerMap.schoolName] || row[headerMap.address] || 'Erode High School';
           const rawDesig = row[headerMap.designation] || 'PG Assistant';
           const rawSub = row[headerMap.subject] || 'Physics';
-          const rawSeniority = parseInt(row[headerMap.seniority]) || (i + 1);
+          const parsedSeniority = parseInt(row[headerMap.seniority]);
+          const rawSeniority = isNaN(parsedSeniority) ? (i + 1) : parsedSeniority;
           const rawDoj = row[headerMap.doj] ? String(row[headerMap.doj]) : '2016-06-01';
           const rawPhone = String(row[headerMap.phone] || '9443100000');
           const rawExempt = !!(row[headerMap.exemption] && String(row[headerMap.exemption]).toLowerCase() !== '0' && String(row[headerMap.exemption]).toLowerCase() !== 'false');
@@ -245,7 +260,8 @@ export class IngestionService {
           const rawName = row[headerMap.name] || `Exam Centre ${i + 1}`;
           const rawId = row[headerMap.id] || `CTR-IMP-${Date.now()}-${i + 1}`;
           const rawAddress = row[headerMap.address] || rawName;
-          const rawCap = parseInt(row[headerMap.capacity]) || 350;
+          const parsedCap = parseInt(row[headerMap.capacity]);
+          const rawCap = isNaN(parsedCap) ? 350 : parsedCap;
           const rawLat = parseFloat(row[headerMap.lat]);
           const rawLng = parseFloat(row[headerMap.lng]);
           const rawBlock = (row[headerMap.block] || '').toLowerCase();
@@ -278,7 +294,8 @@ export class IngestionService {
           const rawLat = parseFloat(row[headerMap.lat]);
           const rawLng = parseFloat(row[headerMap.lng]);
           const rawType = (row[headerMap.type] || 'Government') as SchoolType;
-          const rawCap = parseInt(row[headerMap.capacity]) || 200;
+          const parsedCap = parseInt(row[headerMap.capacity]);
+          const rawCap = isNaN(parsedCap) ? 200 : parsedCap;
           const rawBlock = (row[headerMap.block] || '').toLowerCase();
           const blockId = blockLookup.get(rawBlock) || existingBlocks[0]?.id || 'BLK-ERD';
 
@@ -329,8 +346,13 @@ export class IngestionService {
     existingBlocks: Block[] = []
   ): Promise<ParsedDataset> {
     const pdfjs = await getPdfJs();
-    const loadingTask = pdfjs.getDocument({ data: new Uint8Array(fileBuffer) });
-    const pdfDoc = await loadingTask.promise;
+    let pdfDoc;
+    try {
+      const loadingTask = pdfjs.getDocument({ data: new Uint8Array(fileBuffer) });
+      pdfDoc = await loadingTask.promise;
+    } catch (error: any) {
+      return { schools: [], centres: [], teachers: [], history: [], rawRowCount: 0, detectedType: 'TEACHERS', warnings: ['Failed to load PDF: ' + error.message], geocodedCount: 0 };
+    }
     const allTeachers: Teacher[] = [];
     const allSchools: School[] = [];
     const warnings: string[] = [];
@@ -359,7 +381,7 @@ export class IngestionService {
       // Parse structured line items from page text
       for (const line of pageLines) {
         // Regex pattern matching: [SNo/EMIS] [Name with Thiru/Tmt/Dr] [Designation] [Subject] [School]
-        const lineMatch = line.match(/(?:(\d+)\s+)?([A-Z][a-zA-Z\.\s]{3,30})\s+(PG Assistant|B\.T\.\s*Assistant|Headmaster|Principal|HM)\s+([A-Za-z]+)\s+(.+)/i);
+        const lineMatch = line.match(/(?:(\d+)\s+)?([A-Z][a-zA-Z\.\s]{3,30})\s+(PG Assistant|B\.T\.\s*Assistant|Headmaster|Principal|HM)\s+([A-Za-z][A-Za-z\s]*[A-Za-z])\s+(.+)/i);
 
         if (lineMatch) {
           const rawId = lineMatch[1] ? `TCH-PDF-${lineMatch[1]}` : `TCH-PDF-${Date.now()}-${allTeachers.length + 1}`;

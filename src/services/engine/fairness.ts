@@ -95,7 +95,7 @@ export function sortTeachersByFairness(
 
     // Tertiary: Seniority rank if enabled
     if (considerSeniority && a.seniorityRank !== b.seniorityRank) {
-      return a.seniorityRank - b.seniorityRank;
+      return (a.seniorityRank ?? 9999) - (b.seniorityRank ?? 9999);
     }
 
     // Stable tie-break by name

@@ -67,13 +67,18 @@ const STORAGE_KEYS = {
 };
 
 const memoryStore: Record<string, string> = {};
+let localStorageAvailable = true;
 const safeStorage = {
   getItem: (key: string): string | null => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(key);
+    if (localStorageAvailable) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return window.localStorage.getItem(key);
+        }
+      } catch {
+        localStorageAvailable = false;
       }
-    } catch {}
+    }
     return memoryStore[key] || null;
   },
   setItem: (key: string, val: string): void => {
@@ -82,7 +87,9 @@ const safeStorage = {
         window.localStorage.setItem(key, val);
         return;
       }
-    } catch {}
+    } catch {
+      localStorageAvailable = false;
+    }
     memoryStore[key] = val;
   },
 };
@@ -169,7 +176,7 @@ class DatabaseService {
   public batchSaveSchools(newSchools: School[]): void {
     const schools = this.getSchools();
     for (const ns of newSchools) {
-      const idx = schools.findIndex((s) => s.id === ns.id || s.name.toLowerCase() === ns.name.toLowerCase());
+      const idx = schools.findIndex((s) => s.id === ns.id || s.name?.toLowerCase() === ns.name?.toLowerCase());
       if (idx >= 0) {
         schools[idx] = { ...schools[idx], ...ns };
       } else {
@@ -206,7 +213,7 @@ class DatabaseService {
   public batchSaveCentres(newCentres: ExamCentre[]): void {
     const centres = this.getCentres();
     for (const nc of newCentres) {
-      const idx = centres.findIndex((c) => c.id === nc.id || c.name.toLowerCase() === nc.name.toLowerCase());
+      const idx = centres.findIndex((c) => c.id === nc.id || c.name?.toLowerCase() === nc.name?.toLowerCase());
       if (idx >= 0) {
         centres[idx] = { ...centres[idx], ...nc };
       } else {
@@ -499,8 +506,8 @@ class DatabaseService {
 
       this.addAuditLog('RESTORE_SNAPSHOT', `Master database restored from backup timestamp ${data.exportedAt || 'Unknown'}`);
       return { success: true, message: 'District master database successfully restored!' };
-    } catch (e: any) {
-      return { success: false, message: `Failed to parse backup JSON: ${e.message}` };
+    } catch (e: unknown) {
+      return { success: false, message: `Failed to parse backup JSON: ${e instanceof Error ? e.message : String(e)}` };
     }
   }
 }

@@ -77,6 +77,8 @@ export function generatePracticalDutyAllotment(
     // Practical science stream is typically ~60-70% of 12th standard
     const scienceStudents = Math.round(totalStudents12th * 0.7);
 
+    if (scienceStudents <= 0) continue;
+
     for (const subject of PRACTICAL_SUBJECTS) {
       // Check if school has teachers for this subject
       const schoolSubjectTeachers = activeTeachers.filter(
@@ -196,9 +198,10 @@ export function generatePracticalDutyAllotment(
     const eligibleExternals: { teacher: Teacher; distanceKm: number; swappedRole: boolean }[] = [];
     for (const cand of externalCandidates) {
       const candSchool = schoolMap.get(cand.schoolId);
-      const schoolCoords = candSchool
-        ? { lat: candSchool.lat, lng: candSchool.lng }
-        : { lat: 11.341, lng: 77.7172 };
+      if (!candSchool?.lat || !candSchool?.lng || !hostSchool.lat || !hostSchool.lng) {
+        continue;
+      }
+      const schoolCoords = { lat: candSchool.lat, lng: candSchool.lng };
       const homeCoords =
         cand.homeLat && cand.homeLng ? { lat: cand.homeLat, lng: cand.homeLng } : null;
 

@@ -179,7 +179,13 @@ export async function geocodeInstitution(
       });
 
       if (response.ok) {
-        const data = await response.json();
+        let data;
+        try {
+          data = await response.json();
+        } catch {
+          console.warn('Nominatim returned non-JSON response');
+          data = null;
+        }
         if (data && data.length > 0) {
           const lat = parseFloat(data[0].lat);
           const lng = parseFloat(data[0].lon);
@@ -223,8 +229,8 @@ export async function geocodeInstitution(
 
   // 4. District Center Default Fallback
   const defaultResult: GeocodeResult = {
-    lat: 11.3418,
-    lng: 77.7212,
+    lat: 11.3418 + (Math.random() - 0.5) * 0.004,
+    lng: 77.7212 + (Math.random() - 0.5) * 0.004,
     confidence: 'FALLBACK',
     source: 'LOCALITY_DICTIONARY',
     displayName: 'Erode District Collectorate / Center (Manual Pin Recommended)',
@@ -268,8 +274,8 @@ export async function batchGeocodeItems<T extends { name: string; address?: stri
       lng: geo.lng,
     });
 
-    // Gentle 100ms pause to avoid browser UI thread lock
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Gentle 1100ms pause to avoid browser UI thread lock and respect Nominatim rate limit
+    await new Promise((resolve) => setTimeout(resolve, 1100));
   }
 
   return updatedItems;

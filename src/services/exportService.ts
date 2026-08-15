@@ -131,7 +131,7 @@ export class ExportService {
     // Reference & Date Box
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    const refNo = `Na.Ka.No. ${Math.floor(100000 + Math.random() * 900000)}/Exam-Allot/A3/2026`;
+    const refNo = `Na.Ka.No. ${Date.now().toString(36).toUpperCase() + '-' + (teacher?.id || 'X').slice(-4)}/Exam-Allot/A3/2026`;
     doc.text(`Ref: ${refNo}`, 15, 44);
     doc.text(`Date: ${new Date().toLocaleDateString('en-GB')}`, 195, 44, { align: 'right' });
 
@@ -168,7 +168,7 @@ export class ExportService {
         ['Centre Address & Location', `${centre.address}`],
         ['Assigned Hall / Session', allotment.hallNumber ? `Hall No. ${allotment.hallNumber}` : (allotment.session || 'Full Exam Schedule')],
         ['Calculated Travel Distance', `${allotment.distanceKm} km (Verified within permissible radius)`],
-        ['Reporting Date & Time', `${examCycle.startDate} at 08:30 AM`],
+        ['Reporting Date & Time', `${examCycle.startDate || 'Date to be announced'} at 08:30 AM`],
       ],
       theme: 'grid',
       headStyles: { fillColor: [36, 59, 107], textColor: 255, fontStyle: 'bold', fontSize: 10 },

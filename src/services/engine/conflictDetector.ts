@@ -24,6 +24,20 @@ export function auditAllotments(
   const centreMap = new Map<string, ExamCentre>(centres.map((c) => [c.id, c]));
   const schoolMap = new Map<string, School>(schools.map((s) => [s.id, s]));
 
+  const combinedCentreMap = new Map<string, ExamCentre>(centreMap);
+  for (const school of schools) {
+    if (!combinedCentreMap.has(school.id)) {
+      combinedCentreMap.set(school.id, {
+        id: school.id,
+        name: school.name,
+        schoolId: school.id,
+        lat: school.lat,
+        lng: school.lng,
+        capacity: 0,
+      } as ExamCentre);
+    }
+  }
+
   // Track double booking: `teacherId-${session}-${date}` -> list of allotment ids
   const teacherSessionSlots = new Map<string, DutyAllotment[]>();
 
@@ -40,7 +54,7 @@ export function auditAllotments(
 
   for (const allotment of allotments) {
     const teacher = teacherMap.get(allotment.teacherId);
-    const centre = centreMap.get(allotment.centreId);
+    const centre = combinedCentreMap.get(allotment.centreId);
 
     if (!teacher) {
       violations.push({
@@ -72,20 +86,22 @@ export function auditAllotments(
     }
 
     // 2. Double booking check
-    const slotKey = `${teacher.id}_${allotment.date || 'MAIN'}_${allotment.session || 'ALL'}`;
-    if (!teacherSessionSlots.has(slotKey)) {
-      teacherSessionSlots.set(slotKey, []);
-    }
-    const currentSlots = teacherSessionSlots.get(slotKey)!;
-    currentSlots.push(allotment);
+    if (allotment.date) {
+      const slotKey = `${teacher.id}_${allotment.date}_${allotment.session || 'ALL'}`;
+      if (!teacherSessionSlots.has(slotKey)) {
+        teacherSessionSlots.set(slotKey, []);
+      }
+      const currentSlots = teacherSessionSlots.get(slotKey)!;
+      currentSlots.push(allotment);
 
-    if (currentSlots.length > 1) {
-      violations.push({
-        code: 'DOUBLE_BOOKING_CONFLICT',
-        severity: 'error',
-        message: `Teacher ${teacher.name} is double-booked across ${currentSlots.length} duties (${currentSlots.map((s) => s.role).join(', ')}).`,
-        teacherId: teacher.id,
-      });
+      if (currentSlots.length > 1) {
+        violations.push({
+          code: 'DOUBLE_BOOKING_CONFLICT',
+          severity: 'error',
+          message: `Teacher ${teacher.name} is double-booked across ${currentSlots.length} duties (${currentSlots.map((s) => s.role).join(', ')}).`,
+          teacherId: teacher.id,
+        });
+      }
     }
 
     // 3. Own school and clubbed school check (Theory & Hall Invigilation)
