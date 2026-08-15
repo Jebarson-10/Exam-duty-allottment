@@ -1,0 +1,12 @@
+name = "erode-exam-duty-allotment"
+compatibility_date = "2024-03-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "erode-exam-duty-db"
+database_id = "xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+[[r2_buckets]]
+binding = "REPORTS_BUCKET"
+bucket_name = "erode-exam-reports"
