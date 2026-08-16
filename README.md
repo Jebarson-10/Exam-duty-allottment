@@ -1,6 +1,6 @@
 # Exam Duty Allotment System — Erode CEO Office
 
-[![CI Build & Automated Tests](https://github.com/erode-ceo-exam-duty/erode-exam-duty-allotment/actions/workflows/ci.yml/badge.svg)](https://github.com/erode-ceo-exam-duty/erode-exam-duty-allotment/actions/workflows/ci.yml)
+[![CI Build & Automated Tests](https://github.com/Jebarson-10/Exam-duty-allottment/actions/workflows/ci.yml/badge.svg)](https://github.com/Jebarson-10/Exam-duty-allottment/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Cloudflare Pages](https://img.shields.io/badge/Hosted%20on-Cloudflare%20Pages-F38020?logo=cloudflare)](https://pages.cloudflare.com)
 [![Target Cost: Rs. 0/mo](https://img.shields.io/badge/Monthly%20Cost-Rs.%200%20(Indefinitely)-brightgreen)]()
@@ -58,6 +58,19 @@ Because exam duty allotment usage is bursty (heavy activity for a few weeks befo
 | Backups & Archive | **Cloudflare R2** | 10 GB storage, 1M writes/mo | Weekly snapshot archives |
 | Map Engine | **Leaflet.js + OSM** | Free, zero API key needed | Instant client-side render |
 
+### Backend API (Pages Functions)
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/health` | GET | Liveness + D1 connectivity probe |
+| `/api/sync` | GET | Pull the full district dataset from D1 |
+| `/api/sync` | POST | Atomically push a full district snapshot to D1 |
+| `/api/schools` `/api/centres` `/api/teachers` | GET/POST | Per-entity CRUD for external integrations |
+
+### Offline-First Synchronisation
+
+On startup the portal probes `/api/health`. When the serverless backend is reachable it hydrates from `/api/sync` (cloud wins) and every subsequent mutation is debounced-pushed to D1 automatically — the header shows a live **Cloud Synced · D1** badge. With no backend deployed (e.g. `npm run dev` without Wrangler, or GitHub Pages hosting) the portal runs unchanged in **Local-First Standalone Mode** backed by browser localStorage, and the header shows **Local-First Mode**. The first deployment against an empty D1 seeds the cloud from the local dataset.
+
 ### Deterministic Client-Side Solving
 To never exceed Cloudflare Workers' 10ms CPU limit, **the constraint-solving engine runs entirely in the browser**. A dataset of several thousand teachers and 350 centres executes in sub-second time without server timeouts, and the final solution is persisted in one batch write.
 
@@ -72,7 +85,7 @@ To never exceed Cloudflare Workers' 10ms CPU limit, **the constraint-solving eng
 ### 2. Installation & Running Locally
 ```bash
 # Clone repository
-git clone https://github.com/erode-ceo-exam-duty/erode-exam-duty-allotment.git
+git clone https://github.com/Jebarson-10/Exam-duty-allottment.git
 cd erode-exam-duty-allotment
 
 # Install dependencies

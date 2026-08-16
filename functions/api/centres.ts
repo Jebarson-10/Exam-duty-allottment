@@ -31,25 +31,36 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const centre: any = await context.request.json();
     await context.env.DB.prepare(`
-      INSERT INTO centres (id, name, address, lat, lng, block_id, capacity, clubbed_school_ids)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO centres (id, name, address, lat, lng, block_id, school_id, capacity, total_halls,
+        clubbed_school_ids, chief_superintendent_room, contact_person, phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         address = excluded.address,
         lat = excluded.lat,
         lng = excluded.lng,
         block_id = excluded.block_id,
+        school_id = excluded.school_id,
         capacity = excluded.capacity,
-        clubbed_school_ids = excluded.clubbed_school_ids
+        total_halls = excluded.total_halls,
+        clubbed_school_ids = excluded.clubbed_school_ids,
+        chief_superintendent_room = excluded.chief_superintendent_room,
+        contact_person = excluded.contact_person,
+        phone = excluded.phone
     `).bind(
       centre.id,
       centre.name,
       centre.address || '',
-      centre.lat,
-      centre.lng,
+      centre.lat ?? 0,
+      centre.lng ?? 0,
       centre.blockId || centre.block_id,
+      centre.schoolId || null,
       centre.capacity || 300,
-      JSON.stringify(centre.clubbedSchoolIds || [])
+      centre.totalHalls ?? 0,
+      JSON.stringify(centre.clubbedSchoolIds || []),
+      centre.chiefSuperintendentRoom || null,
+      centre.contactPerson || null,
+      centre.phone || ''
     ).run();
 
     return Response.json({ success: true, centre });

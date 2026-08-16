@@ -25,23 +25,36 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const school: any = await context.request.json();
     await context.env.DB.prepare(`
-      INSERT INTO schools (id, name, address, lat, lng, block_id, type)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO schools (id, name, address, lat, lng, block_id, type, phone, email, principal_name,
+        student_strength_10th, student_strength_11th, student_strength_12th)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         address = excluded.address,
         lat = excluded.lat,
         lng = excluded.lng,
         block_id = excluded.block_id,
-        type = excluded.type
+        type = excluded.type,
+        phone = excluded.phone,
+        email = excluded.email,
+        principal_name = excluded.principal_name,
+        student_strength_10th = excluded.student_strength_10th,
+        student_strength_11th = excluded.student_strength_11th,
+        student_strength_12th = excluded.student_strength_12th
     `).bind(
       school.id,
       school.name,
       school.address || '',
-      school.lat,
-      school.lng,
+      school.lat ?? 0,
+      school.lng ?? 0,
       school.blockId || school.block_id,
-      school.type || 'Government'
+      school.type || 'Government',
+      school.phone || '',
+      school.email || '',
+      school.principalName || null,
+      school.studentStrength10th ?? 0,
+      school.studentStrength11th ?? 0,
+      school.studentStrength12th ?? 0
     ).run();
 
     return Response.json({ success: true, school });

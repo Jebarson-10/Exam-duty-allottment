@@ -12,6 +12,7 @@ import {
   PracticalBatch,
   AuditLog,
 } from '../types';
+import { api, CloudStatus } from './api';
 
 export const OFFICIAL_ERODE_BLOCKS: Block[] = [
   { id: 'BLK-ERD', name: 'Erode Urban', code: '331001' },
@@ -95,8 +96,114 @@ const safeStorage = {
 };
 
 class DatabaseService {
+  // --- Cloud (D1) synchronisation state ---
+  public cloudStatus: CloudStatus = 'checking';
+  private cloudListeners = new Set<(status: CloudStatus) => void>();
+  private syncTimer: ReturnType<typeof setTimeout> | null = null;
+  private syncInFlight = false;
+
   constructor() {
     this.initDatabase();
+  }
+
+  // ---------- Cloud Sync (Cloudflare Pages Functions + D1) ----------
+
+  /** Subscribe to backend connectivity changes (used by the Header status pill). */
+  public onCloudStatusChange(callback: (status: CloudStatus) => void): () => void {
+    this.cloudListeners.add(callback);
+    callback(this.cloudStatus);
+    return () => this.cloudListeners.delete(callback);
+  }
+
+  private setCloudStatus(status: CloudStatus): void {
+    this.cloudStatus = status;
+    this.cloudListeners.forEach((cb) => cb(status));
+  }
+
+  /**
+   * Called once on application startup. Probes the serverless backend and,
+   * when available, hydrates the local cache from D1 (cloud wins) or seeds
+   * the cloud from local data on first deployment.
+   */
+  public async initialize(): Promise<void> {
+    const healthy = await api.checkHealth();
+    if (!healthy) {
+      this.setCloudStatus('offline');
+      return;
+    }
+    try {
+      const remote = await api.fetchSync();
+      const remoteHasData =
+        (remote.schools?.length ?? 0) > 0 ||
+        (remote.centres?.length ?? 0) > 0 ||
+        (remote.teachers?.length ?? 0) > 0 ||
+        (remote.allotments?.length ?? 0) > 0 ||
+        (remote.dutyHistory?.length ?? 0) > 0;
+      const localHasData =
+        this.getSchools().length > 0 ||
+        this.getCentres().length > 0 ||
+        this.getTeachers().length > 0;
+
+      if (remoteHasData) {
+        safeStorage.setItem(STORAGE_KEYS.BLOCKS, JSON.stringify(remote.blocks ?? this.getBlocks()));
+        safeStorage.setItem(STORAGE_KEYS.SCHOOLS, JSON.stringify(remote.schools ?? []));
+        safeStorage.setItem(STORAGE_KEYS.CENTRES, JSON.stringify(remote.centres ?? []));
+        safeStorage.setItem(STORAGE_KEYS.TEACHERS, JSON.stringify(remote.teachers ?? []));
+        safeStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(remote.dutyHistory ?? []));
+        safeStorage.setItem(STORAGE_KEYS.CYCLES, JSON.stringify(remote.examCycles?.length ? remote.examCycles : this.getExamCycles()));
+        safeStorage.setItem(STORAGE_KEYS.ALLOTMENTS, JSON.stringify(remote.allotments ?? []));
+        safeStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(remote.batches ?? []));
+        safeStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(remote.auditLogs?.length ? remote.auditLogs : this.getAuditLogs()));
+        if (remote.activeCycle) {
+          safeStorage.setItem(STORAGE_KEYS.ACTIVE_CYCLE, remote.activeCycle);
+        }
+      } else if (localHasData) {
+        // First deployment against an empty D1: seed the cloud with local data.
+        this.setCloudStatus('online');
+        this.scheduleCloudSync();
+        return;
+      }
+      this.setCloudStatus('online');
+    } catch {
+      this.setCloudStatus('offline');
+    }
+  }
+
+  /** Push the complete district snapshot to D1 (atomic bulk replace). */
+  public async syncNow(): Promise<boolean> {
+    if (this.cloudStatus === 'offline' || this.syncInFlight) return false;
+    this.syncInFlight = true;
+    this.setCloudStatus('syncing');
+    try {
+      await api.pushSync({
+        blocks: this.getBlocks(),
+        schools: this.getSchools(),
+        centres: this.getCentres(),
+        teachers: this.getTeachers(),
+        dutyHistory: this.getDutyHistory(),
+        examCycles: this.getExamCycles(),
+        allotments: this.getAllotments(),
+        batches: this.getPracticalBatches(),
+        auditLogs: this.getAuditLogs(),
+        activeCycle: safeStorage.getItem(STORAGE_KEYS.ACTIVE_CYCLE),
+      });
+      this.setCloudStatus('online');
+      return true;
+    } catch {
+      this.setCloudStatus('offline');
+      return false;
+    } finally {
+      this.syncInFlight = false;
+    }
+  }
+
+  /** Debounced cloud push after any local mutation. */
+  private scheduleCloudSync(): void {
+    if (this.cloudStatus === 'offline') return;
+    if (this.syncTimer) clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => {
+      void this.syncNow();
+    }, 1500);
   }
 
   private initDatabase() {
@@ -274,6 +381,7 @@ class DatabaseService {
 
   public saveDutyHistory(history: DutyHistory[]): void {
     safeStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history));
+    this.scheduleCloudSync();
   }
 
   public saveSingleDutyHistory(item: DutyHistory): void {
@@ -453,6 +561,7 @@ class DatabaseService {
     all = all.filter((b) => b.examCycleId !== examCycleId);
     all.push(...batches);
     safeStorage.setItem(STORAGE_KEYS.BATCHES, JSON.stringify(all));
+    this.scheduleCloudSync();
   }
 
   // --- Audit Trail ---
@@ -471,6 +580,7 @@ class DatabaseService {
     };
     logs.unshift(newLog);
     safeStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(logs.slice(0, 500)));
+    this.scheduleCloudSync();
   }
 
   // --- Full District Backup / Snapshot ---

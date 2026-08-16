@@ -32,10 +32,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
     await context.env.DB.prepare(`
-      INSERT INTO teachers (id, name, school_id, subject, designation, seniority_rank, date_of_joining, home_lat, home_lng, is_exempted, exemption_reason, phone, email)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO teachers (id, name, gender, school_id, subject, designation, seniority_rank, date_of_joining, home_lat, home_lng, is_exempted, exemption_reason, phone, email, paired_teacher_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
+        gender = excluded.gender,
         school_id = excluded.school_id,
         subject = excluded.subject,
         designation = excluded.designation,
@@ -46,10 +47,12 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         is_exempted = excluded.is_exempted,
         exemption_reason = excluded.exemption_reason,
         phone = excluded.phone,
-        email = excluded.email
+        email = excluded.email,
+        paired_teacher_id = excluded.paired_teacher_id
     `).bind(
       teacher.id,
       teacher.name,
+      teacher.gender || 'M',
       teacher.schoolId || teacher.school_id,
       teacher.subject,
       teacher.designation,
@@ -60,7 +63,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       teacher.isExempted ? 1 : 0,
       teacher.exemptionReason || '',
       teacher.phone || '',
-      teacher.email || ''
+      teacher.email || '',
+      teacher.pairedTeacherId || null
     ).run();
 
     return Response.json({ success: true, teacher });
