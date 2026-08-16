@@ -5,6 +5,9 @@
 import { describe, it, expect } from 'vitest';
 import { SmartColumnMapper } from '../src/services/smartColumnMapper';
 import { IngestionService } from '../src/services/ingestionService';
+import { findLocalityCoordinates } from '../src/services/geocodingService';
+import { tamilToSubject, tamilToDesignation, tamilToBlockName } from '../src/services/tamilData';
+import { STRINGS } from '../src/i18n';
 import * as XLSX from 'xlsx';
 import { OFFICIAL_ERODE_BLOCKS } from '../src/services/db';
 
@@ -131,5 +134,77 @@ describe('4. Ingestion pipeline hardening', () => {
     const parsed = await IngestionService.parseSpreadsheet(buffer, OFFICIAL_ERODE_BLOCKS);
     expect(parsed.teachers[0].dateOfJoining).toBe('2005-07-15');
     expect(parsed.teachers[1].dateOfJoining).toBe('2016-04-06');
+  });
+});
+
+describe('5. Native Tamil language support', () => {
+  it('translates Tamil domain vocabulary to canonical values', () => {
+    expect(tamilToSubject('இயற்பியல்')).toBe('Physics');
+    expect(tamilToSubject('கணிதம்')).toBe('Mathematics');
+    expect(tamilToSubject('தமிழ்')).toBe('Tamil');
+    expect(tamilToDesignation('தலைமை ஆசிரியர்')).toBe('Headmaster');
+    expect(tamilToDesignation('முதுகலை உதவியாளர்')).toBe('PG Assistant');
+    expect(tamilToBlockName('பவானி')).toBe('bhavani');
+    expect(tamilToBlockName('கோபிசெட்டிபாளையம்')).toBe('gobichettipalayam');
+  });
+
+  it('ingests a fully Tamil roster (Tamil headers and values) into normalized records', async () => {
+    const ws = XLSX.utils.json_to_sheet([
+      { 'ஆசிரியர் பெயர்': 'திரு. முருகேசன்', 'பதவி': 'தலைமை ஆசிரியர்', 'பாடம்': 'இயற்பியல்', 'பணிபுரியும் பள்ளி': 'அரசு மேல்நிலைப் பள்ளி, பவானி', 'பாலினம்': 'ஆண்', 'தொடர்புக்கு': '9443100001', 'விதிவிலக்கு': 'இல்லை' },
+      { 'ஆசிரியர் பெயர்': 'திருமதி. கவிதா', 'பதவி': 'முதுகலை உதவியாளர்', 'பாடம்': 'கணிதம்', 'பணிபுரியும் பள்ளி': 'அரசு மேல்நிலைப் பள்ளி, பவானி', 'பாலினம்': 'பெண்', 'தொடர்புக்கு': '9443100002', 'விதிவிலக்கு': 'மருத்துவக் குழு' },
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'ஆசிரியர்கள்');
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+    const parsed = await IngestionService.parseSpreadsheet(buffer, OFFICIAL_ERODE_BLOCKS);
+    expect(parsed.teachers.length).toBe(2);
+    expect(parsed.teachers[0].name).toBe('திரு. முருகேசன்');
+    expect(parsed.teachers[0].designation).toBe('Headmaster');
+    expect(parsed.teachers[0].subject).toBe('Physics');
+    expect(parsed.teachers[0].gender).toBe('M');
+    expect(parsed.teachers[0].isExempted).toBe(false);
+    expect(parsed.teachers[1].designation).toBe('PG Assistant');
+    expect(parsed.teachers[1].subject).toBe('Mathematics');
+    expect(parsed.teachers[1].gender).toBe('F');
+    expect(parsed.teachers[1].isExempted).toBe(true);
+  });
+
+  it('resolves Tamil block names to official block IDs during school ingestion', async () => {
+    const ws = XLSX.utils.json_to_sheet([
+      { 'பள்ளியின் பெயர்': 'அரசு மேல்நிலைப் பள்ளி, பவானி', 'கல்வி வட்டம்': 'பவானி', 'பள்ளி வகை': 'அரசு' },
+      { 'பள்ளியின் பெயர்': 'அரசு மேல்நிலைப் பள்ளி, பெருந்துறை', 'கல்வி வட்டம்': 'பெருந்துறை', 'பள்ளி வகை': 'அரசு நிதியுதவி' },
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'பள்ளிகள்');
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+    const parsed = await IngestionService.parseSpreadsheet(buffer, OFFICIAL_ERODE_BLOCKS);
+    expect(parsed.schools.length).toBe(2);
+    expect(parsed.schools[0].blockId).toBe('BLK-BHV');
+    expect(parsed.schools[1].blockId).toBe('BLK-PRD');
+    expect(parsed.schools[0].type).toBe('Government');
+    expect(parsed.schools[1].type).toBe('Government Aided');
+  });
+
+  it('geocodes institutions named in Tamil via the locality dictionary', () => {
+    const match = findLocalityCoordinates('அரசு மேல்நிலைப் பள்ளி, பவானி');
+    expect(match).not.toBeNull();
+    expect(match?.lat).toBeCloseTo(11.4485, 2);
+    expect(match?.lng).toBeCloseTo(77.6833, 2);
+
+    const gobi = findLocalityCoordinates('கோபிசெட்டிபாளையம்');
+    expect(gobi?.lat).toBeCloseTo(11.4552, 2);
+  });
+
+  it('keeps every UI string available in both English and Tamil', () => {
+    for (const [key, entry] of Object.entries(STRINGS)) {
+      expect(key, `key ${key}`).toBeTruthy();
+      expect(entry.length, `key ${key}`).toBe(2);
+      expect(entry[0].trim(), `English for ${key}`).not.toBe('');
+      expect(entry[1].trim(), `Tamil for ${key}`).not.toBe('');
+    }
+    // Spot-check a known bilingual pair
+    expect(STRINGS['nav.theory'][1]).toBe('கோட்பாட்டுத் தேர்வு ஒதுக்கீடு');
   });
 });

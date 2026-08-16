@@ -9,6 +9,7 @@ import {
   ExamCycle,
   Block,
 } from '../../types';
+import { useI18n } from '../../i18n';
 import {
   School as SchoolIcon,
   Building2,
@@ -41,6 +42,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   activeCycle,
   onNavigateTab,
 }) => {
+  const { t } = useI18n();
   const activeTeachers = teachers.filter((t) => !t.isExempted);
   const exemptedTeachers = teachers.filter((t) => t.isExempted);
 
@@ -73,22 +75,22 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="space-y-1.5 max-w-2xl">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-tngold-500/20 border border-tngold-500/40 text-tngold-300 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5 text-tngold-400" />
-              <span>Erode CEO Office Examination Command Center</span>
+              <span>{t('dash.badge')}</span>
             </div>
             <h1 className="text-2xl font-extrabold tracking-tight">
-              State Board Public Examinations Duty Allotment System
+              {t('dash.h1')}
             </h1>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Automating Theory Duty (HMs/Chief/DO), Practical Laboratories, and Hall Invigilation across {blocks.length} Educational Blocks with strict &le; 10 km distance, 2-year no-repeat, and equitable fairness rules.
+              {t('dash.para', { blocks: blocks.length })}
             </p>
           </div>
 
           <div className="bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/15 text-xs space-y-1.5 min-w-[220px]">
-            <div className="text-slate-300 font-medium">Active Exam Cycle:</div>
+            <div className="text-slate-300 font-medium">{t('dash.activeCycle')}</div>
             <div className="text-sm font-extrabold text-amber-300">{activeCycle.label}</div>
             <div className="text-[11px] text-slate-400 flex items-center pt-1 border-t border-white/10">
               <Calendar className="w-3.5 h-3.5 mr-1" />
-              <span>{activeCycle.startDate} to {activeCycle.endDate}</span>
+              <span>{activeCycle.startDate} {t('dash.to')} {activeCycle.endDate}</span>
             </div>
           </div>
         </div>
@@ -111,7 +113,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-1.5"
           >
             <UploadCloud className="w-4 h-4" />
-            <span>Upload Master Excel / PDF Files</span>
+            <span>{t('dash.emptyBtn')}</span>
           </button>
         </div>
       )}
@@ -120,9 +122,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-between">
           <div>
-            <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Exam Centres</div>
+            <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{t('dash.centres')}</div>
             <div className="text-3xl font-black text-slate-800 mt-1 tabular-nums">{centres.length}</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Across {blocks.length} blocks</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">{t('dash.centresSub', { blocks: blocks.length })}</div>
           </div>
           <div className="p-3 rounded-xl bg-gradient-to-br from-red-500/15 to-red-600/5 text-red-600 border border-red-100">
             <Building2 className="w-6 h-6" />
@@ -131,9 +133,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-between">
           <div>
-            <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Schools Master</div>
+            <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{t('dash.schools')}</div>
             <div className="text-3xl font-black text-slate-800 mt-1 tabular-nums">{schools.length}</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Govt & Aided HSS</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">{t('dash.schoolsSub')}</div>
           </div>
           <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/15 to-blue-600/5 text-blue-600 border border-blue-100">
             <SchoolIcon className="w-6 h-6" />
@@ -142,10 +144,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-between">
           <div>
-            <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Faculty Pool</div>
+            <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{t('dash.faculty')}</div>
             <div className="text-3xl font-black text-slate-800 mt-1 tabular-nums">{activeTeachers.length}</div>
             <div className="text-[11px] text-emerald-600 font-medium mt-0.5">
-              {exemptedTeachers.length} staff exempted
+              {t('dash.exempted', { n: exemptedTeachers.length })}
             </div>
           </div>
           <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-600/5 text-emerald-600 border border-emerald-100">
@@ -155,9 +157,9 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
 
         <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center justify-between">
           <div>
-            <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Distance Compliance</div>
+            <div className="text-slate-400 text-xs font-semibold uppercase tracking-wider">{t('dash.compliance')}</div>
             <div className="text-3xl font-black text-tnnavy-800 mt-1 tabular-nums">{distanceCompliancePercent}%</div>
-            <div className="text-[11px] text-slate-500 mt-0.5">Within 10 km limit</div>
+            <div className="text-[11px] text-slate-500 mt-0.5">{t('dash.within10')}</div>
           </div>
           <div className="p-3 rounded-xl bg-gradient-to-br from-indigo-500/15 to-indigo-600/5 text-indigo-600 border border-indigo-100">
             <MapPin className="w-6 h-6" />
@@ -171,15 +173,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-tnnavy-400 transition space-y-3">
           <div className="flex items-center justify-between">
             <span className="px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-800 border border-purple-200 text-[10px] font-bold uppercase">
-              Module 1
+              {t('dash.module', { n: 1 })}
             </span>
-            <span className="text-xs font-bold text-slate-600">{theoryAllotments.length} Allotted</span>
+            <span className="text-xs font-bold text-slate-600">{t('dash.allotted', { n: theoryAllotments.length })}</span>
           </div>
 
           <div>
             <h3 className="font-bold text-sm text-slate-800">Theory Duty Engine</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Chief Superintendents & Department Officers with HM own-school exclusions and seniority fallback.
+              {t('dash.theoryDesc')}
             </p>
           </div>
 
@@ -194,7 +196,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             onClick={() => onNavigateTab('theory')}
             className="w-full py-2 bg-slate-50 hover:bg-tnnavy-800 hover:text-white text-tnnavy-900 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition border border-slate-200"
           >
-            <span>Launch Theory Wizard</span>
+            <span>{t('dash.launchTheory')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -203,15 +205,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-emerald-400 transition space-y-3">
           <div className="flex items-center justify-between">
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold uppercase">
-              Module 2
+              {t('dash.module', { n: 2 })}
             </span>
-            <span className="text-xs font-bold text-slate-600">{practicalAllotments.length} Examiners</span>
+            <span className="text-xs font-bold text-slate-600">{t('dash.examiners', { n: practicalAllotments.length })}</span>
           </div>
 
           <div>
             <h3 className="font-bold text-sm text-slate-800">Practical Duty Engine</h3>
             <p className="text-xs text-slate-500 mt-1">
-              50-student batch splits, parallel FN/AN sessions, and automatic paired role swapping.
+              {t('dash.practicalDesc')}
             </p>
           </div>
 
@@ -226,7 +228,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             onClick={() => onNavigateTab('practical')}
             className="w-full py-2 bg-slate-50 hover:bg-emerald-700 hover:text-white text-emerald-900 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition border border-slate-200"
           >
-            <span>Launch Practical Wizard</span>
+            <span>{t('dash.launchPractical')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -235,15 +237,15 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:border-blue-400 transition space-y-3">
           <div className="flex items-center justify-between">
             <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold uppercase">
-              Module 3
+              {t('dash.module', { n: 3 })}
             </span>
-            <span className="text-xs font-bold text-slate-600">{hallAllotments.length} Staff</span>
+            <span className="text-xs font-bold text-slate-600">{t('dash.staff', { n: hallAllotments.length })}</span>
           </div>
 
           <div>
             <h3 className="font-bold text-sm text-slate-800">Hall Invigilation Engine</h3>
             <p className="text-xs text-slate-500 mt-1">
-              1 invigilator per 20 students + 10% standby pool with 2-year no-repeat and exemption filters.
+              {t('dash.hallDesc')}
             </p>
           </div>
 
@@ -258,7 +260,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             onClick={() => onNavigateTab('hall')}
             className="w-full py-2 bg-slate-50 hover:bg-blue-700 hover:text-white text-blue-900 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition border border-slate-200"
           >
-            <span>Launch Hall Wizard</span>
+            <span>{t('dash.launchHall')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

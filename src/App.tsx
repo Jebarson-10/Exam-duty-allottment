@@ -14,6 +14,7 @@ import {
   AuditLog,
 } from './types';
 import { Header } from './components/common/Header';
+import { useI18n } from './i18n';
 import { DashboardOverview } from './components/dashboard/DashboardOverview';
 import { UniversalDataIngestionView } from './components/master/UniversalDataIngestionView';
 import { DutyHistoryManager } from './components/history/DutyHistoryManager';
@@ -29,6 +30,7 @@ import { AuditAndBackupView } from './components/audit/AuditAndBackupView';
 import { ManualOverrideModal } from './components/override/ManualOverrideModal';
 
 export function App() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [ready, setReady] = useState<boolean>(false);
 
@@ -84,7 +86,7 @@ export function App() {
         </div>
         <div className="text-center">
           <div className="text-sm font-bold text-slate-800">Erode District Exam Duty Portal</div>
-          <div className="text-xs text-slate-500 mt-1">Connecting to district master database…</div>
+          <div className="text-xs text-slate-500 mt-1">{t('dash.loading')}</div>
         </div>
         <div className="w-40 h-1 bg-slate-200 rounded-full overflow-hidden">
           <div className="h-full w-1/2 bg-tnnavy-600 rounded-full animate-pulse"></div>
@@ -350,12 +352,12 @@ export function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center space-x-2">
             <span className="w-1.5 h-1.5 rounded-full bg-tngold-500"></span>
-            <span>© 2026 Chief Educational Officer, Erode District · Department of School Education, Govt. of Tamil Nadu.</span>
+            <span>{t('footer.line')}</span>
           </div>
           <div className="flex items-center space-x-3 text-[11px] text-slate-400">
             <span>Serverless: Cloudflare Pages + D1 (SQLite) + R2</span>
             <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-            <span>Monthly Cost: Rs. 0</span>
+            <span>{t('footer.cost')}</span>
           </div>
         </div>
       </footer>

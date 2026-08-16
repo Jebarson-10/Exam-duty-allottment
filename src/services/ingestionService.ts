@@ -2,6 +2,18 @@ import * as XLSX from 'xlsx';
 import { School, ExamCentre, Teacher, Block, TeacherDesignation, Subject, SchoolType, DutyHistory } from '../types';
 import { geocodeInstitution, batchGeocodeItems } from './geocodingService';
 import { SmartColumnMapper, ColumnMapping, MappingProposal } from './smartColumnMapper';
+import {
+  normalizeTamilText,
+  tamilToDesignation,
+  tamilToSubject,
+  tamilToSchoolType,
+  tamilToGender,
+  tamilToBlockName,
+  tamilToDutyType,
+  tamilToRole,
+  isTruthilyExemptedTamil,
+  TAMIL_BLOCK_ALIASES,
+} from './tamilData';
 
 // Re-export for external consumers
 export type { ColumnMapping, MappingProposal };
@@ -87,6 +99,8 @@ function isTruthilyExempted(raw: any): boolean {
   if (raw === undefined || raw === null) return false;
   const s = String(raw).trim().toLowerCase();
   if (s === '') return false;
+  const tamil = isTruthilyExemptedTamil(s);
+  if (tamil !== null) return tamil;
   return !NOT_EXEMPTED_VALUES.has(s);
 }
 
@@ -110,10 +124,13 @@ function normalizeDateValue(raw: any): string | undefined {
 }
 
 /**
- * Normalizes designation to standard union types
+ * Normalizes designation to standard union types (English or Tamil input)
  */
 function normalizeDesignation(raw: string): TeacherDesignation {
-  const lower = (raw || '').toLowerCase();
+  const cleaned = normalizeTamilText(raw);
+  const tamil = tamilToDesignation(cleaned);
+  if (tamil) return tamil;
+  const lower = cleaned.toLowerCase();
   if (lower.includes('headmaster') || lower.includes('hm') || lower.includes('head master') || lower.includes('headmistress')) return 'Headmaster';
   if (lower.includes('principal')) return 'Principal';
   if (lower.includes('pg') || lower.includes('post graduate') || lower.includes('pg asst') || lower.includes('p.g')) return 'PG Assistant';
@@ -124,10 +141,13 @@ function normalizeDesignation(raw: string): TeacherDesignation {
 }
 
 /**
- * Normalizes subject string
+ * Normalizes subject string (English or Tamil input)
  */
 function normalizeSubject(raw: string): Subject {
-  const lower = (raw || '').toLowerCase();
+  const cleaned = normalizeTamilText(raw);
+  const tamil = tamilToSubject(cleaned);
+  if (tamil) return tamil;
+  const lower = cleaned.toLowerCase();
   if (lower.includes('phy')) return 'Physics';
   if (lower.includes('chem')) return 'Chemistry';
   if (lower.includes('bio')) return 'Biology';
@@ -199,7 +219,25 @@ export class IngestionService {
     const warnings: string[] = [];
     let rawRowCount = 0;
 
-    const blockLookup = new Map(existingBlocks.map((b) => [b.name.toLowerCase(), b.id]));
+    // Lookup accepts both English and Tamil block/taluk names
+    const blockLookup = new Map<string, string>();
+    for (const b of existingBlocks) {
+      blockLookup.set(b.name.toLowerCase(), b.id);
+      if (b.code) blockLookup.set(b.code.toLowerCase(), b.id);
+    }
+    for (const [tamil, english] of Object.entries(TAMIL_BLOCK_ALIASES)) {
+      const id = blockLookup.get(english) || blockLookup.get(`${english} block`);
+      if (id) blockLookup.set(tamil, id);
+    }
+    const resolveBlockId = (raw: any): string => {
+      const s = normalizeTamilText(String(raw || '')).toLowerCase();
+      return (
+        blockLookup.get(s) ||
+        blockLookup.get(tamilToBlockName(s) || '') ||
+        existingBlocks[0]?.id ||
+        'BLK-ERD'
+      );
+    };
 
     for (const sheetName of workbook.SheetNames) {
       const mappings = confirmedMappings.get(sheetName);
@@ -253,8 +291,12 @@ export class IngestionService {
           const rawTId = row[headerMap.id] || `TCH-${rawTName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}`;
           const rawCName = row[centreHeader] || `Exam Centre ${i + 1}`;
           const rawCId = `CTR-${rawCName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}`;
-          const rawRole = (row[headerMap.role] || 'Hall Invigilator') as any;
-          const rawDutyType = (row[headerMap.dutyType] || 'Theory') as any;
+          const rawRole = (row[headerMap.role]
+            ? tamilToRole(String(row[headerMap.role])) || String(row[headerMap.role])
+            : 'Hall Invigilator') as any;
+          const rawDutyType = (row[headerMap.dutyType]
+            ? tamilToDutyType(String(row[headerMap.dutyType])) || String(row[headerMap.dutyType])
+            : 'Theory') as any;
 
           allHistory.push({
             id: `HIST-IMP-${Date.now()}-${i + 1}`,
@@ -283,6 +325,8 @@ export class IngestionService {
           const rawDoj = normalizeDateValue(row[headerMap.doj]) || '2016-06-01';
           const rawPhone = String(row[headerMap.phone] || '9443100000');
           const rawExempt = isTruthilyExempted(row[headerMap.exemption]);
+          const rawGender = tamilToGender(row[headerMap.gender]) ||
+            (String(row[headerMap.gender] || '').trim().toLowerCase().startsWith('f') ? 'F' : 'M');
           const rawLat = parseFloat(row[headerMap.lat]);
           const rawLng = parseFloat(row[headerMap.lng]);
 
@@ -308,7 +352,7 @@ export class IngestionService {
           allTeachers.push({
             id: String(rawId),
             name: String(rawName),
-            gender: 'M',
+            gender: rawGender,
             schoolId,
             designation: normalizeDesignation(String(rawDesig)),
             subject: normalizeSubject(String(rawSub)),
@@ -331,8 +375,7 @@ export class IngestionService {
           const rawCap = isNaN(parsedCap) ? 350 : parsedCap;
           const rawLat = parseFloat(row[headerMap.lat]);
           const rawLng = parseFloat(row[headerMap.lng]);
-          const rawBlock = (row[headerMap.block] || '').toLowerCase();
-          const blockId = blockLookup.get(rawBlock) || existingBlocks[0]?.id || 'BLK-ERD';
+          const blockId = resolveBlockId(row[headerMap.block]);
 
           const clubbedList = String(row[headerMap.clubbed] || '')
             .split(/[,;\n]/)
@@ -360,11 +403,11 @@ export class IngestionService {
           const rawAddress = row[headerMap.address] || rawName;
           const rawLat = parseFloat(row[headerMap.lat]);
           const rawLng = parseFloat(row[headerMap.lng]);
-          const rawType = (row[headerMap.type] || 'Government') as SchoolType;
+          const rawType = (tamilToSchoolType(String(row[headerMap.type] || '')) ||
+            (row[headerMap.type] || 'Government')) as SchoolType;
           const parsedCap = parseInt(row[headerMap.capacity]);
           const rawCap = isNaN(parsedCap) ? 200 : parsedCap;
-          const rawBlock = (row[headerMap.block] || '').toLowerCase();
-          const blockId = blockLookup.get(rawBlock) || existingBlocks[0]?.id || 'BLK-ERD';
+          const blockId = resolveBlockId(row[headerMap.block]);
 
           allSchools.push({
             id: String(rawId),

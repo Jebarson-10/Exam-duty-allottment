@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { ExamCycle } from '../../types';
 import { db } from '../../services/db';
 import { CloudStatus } from '../../services/api';
+import { useI18n } from '../../i18n';
 import {
   LayoutDashboard,
   UploadCloud,
@@ -21,6 +22,7 @@ import {
   Cloud,
   CloudOff,
   RefreshCw,
+  Languages,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -32,13 +34,6 @@ interface HeaderProps {
   onOpenIngestion: () => void;
 }
 
-const STATUS_META: Record<CloudStatus, { label: string; className: string; Icon: typeof Cloud }> = {
-  checking: { label: 'Connecting…', className: 'bg-slate-500/15 text-slate-300 border-slate-400/30', Icon: RefreshCw },
-  online: { label: 'Cloud Synced · D1', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', Icon: Cloud },
-  syncing: { label: 'Syncing to Cloud…', className: 'bg-amber-500/15 text-amber-300 border-amber-500/30', Icon: RefreshCw },
-  offline: { label: 'Local-First Mode', className: 'bg-slate-500/15 text-slate-300 border-slate-400/30', Icon: CloudOff },
-};
-
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onTabChange,
@@ -47,27 +42,39 @@ export const Header: React.FC<HeaderProps> = ({
   onCycleChange,
   onOpenIngestion,
 }) => {
+  const { t, lang, setLang } = useI18n();
   const [cloudStatus, setCloudStatus] = useState<CloudStatus>(db.cloudStatus);
 
   useEffect(() => db.onCloudStatusChange(setCloudStatus), []);
 
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, group: 'Overview' },
-    { id: 'ingest', label: 'Smart File Ingestion (Excel/PDF)', icon: UploadCloud, group: 'Overview' },
-    { id: 'history', label: 'Duty History Ledger', icon: History, group: 'Overview' },
-    { id: 'map', label: 'GPS Coordinate Capture', icon: MapPin, group: 'Overview' },
-    { id: 'theory', label: 'Theory Allotment', icon: Sparkles, group: 'Allotment Engines' },
-    { id: 'practical', label: 'Practical Allotment', icon: FlaskConical, group: 'Allotment Engines' },
-    { id: 'hall', label: 'Hall Invigilation', icon: Grid, group: 'Allotment Engines' },
-    { id: 'schools', label: 'Schools Registry', icon: SchoolIcon, group: 'Master Registers' },
-    { id: 'centres', label: 'Exam Centres', icon: Building2, group: 'Master Registers' },
-    { id: 'teachers', label: 'Faculty Database', icon: Users, group: 'Master Registers' },
-    { id: 'reports', label: 'Official Orders & PDF', icon: FileText, group: 'Governance' },
-    { id: 'audit', label: 'Audit & Cloud Backup', icon: Activity, group: 'Governance' },
+    { id: 'dashboard', icon: LayoutDashboard, group: 'Overview' },
+    { id: 'ingest', icon: UploadCloud, group: 'Overview' },
+    { id: 'history', icon: History, group: 'Overview' },
+    { id: 'map', icon: MapPin, group: 'Overview' },
+    { id: 'theory', icon: Sparkles, group: 'Allotment Engines' },
+    { id: 'practical', icon: FlaskConical, group: 'Allotment Engines' },
+    { id: 'hall', icon: Grid, group: 'Allotment Engines' },
+    { id: 'schools', icon: SchoolIcon, group: 'Master Registers' },
+    { id: 'centres', icon: Building2, group: 'Master Registers' },
+    { id: 'teachers', icon: Users, group: 'Master Registers' },
+    { id: 'reports', icon: FileText, group: 'Governance' },
+    { id: 'audit', icon: Activity, group: 'Governance' },
   ];
-  const groups = ['Overview', 'Allotment Engines', 'Master Registers', 'Governance'];
-  const status = STATUS_META[cloudStatus];
-  const StatusIcon = status.Icon;
+
+  const statusKey: Record<CloudStatus, string> = {
+    checking: 'status.checking',
+    online: 'status.online',
+    syncing: 'status.syncing',
+    offline: 'status.offline',
+  };
+  const statusClass: Record<CloudStatus, string> = {
+    checking: 'bg-slate-500/15 text-slate-300 border-slate-400/30',
+    online: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+    syncing: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+    offline: 'bg-slate-500/15 text-slate-300 border-slate-400/30',
+  };
+  const StatusIcon = cloudStatus === 'online' ? Cloud : cloudStatus === 'offline' ? CloudOff : RefreshCw;
 
   return (
     <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-200 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
@@ -81,10 +88,10 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div>
               <div className="font-extrabold tracking-[0.08em] text-[11px] text-slate-100 uppercase">
-                Government of Tamil Nadu · Department of School Education
+                {t('gov.line')}
               </div>
               <div className="text-[10px] text-slate-400 font-medium">
-                Chief Educational Officer (CEO), Erode District — Exam Duty Automation Portal
+                {t('gov.portal')}
               </div>
             </div>
           </div>
@@ -101,11 +108,21 @@ export const Header: React.FC<HeaderProps> = ({
                   ? 'Pushing district snapshot to Cloudflare D1…'
                   : 'Probing serverless backend…'
               }
-              className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold ${status.className}`}
+              className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold ${statusClass[cloudStatus]}`}
             >
               <StatusIcon className={`w-3 h-3 ${cloudStatus === 'checking' || cloudStatus === 'syncing' ? 'animate-spin' : ''}`} />
-              <span>{status.label}</span>
+              <span>{t(statusKey[cloudStatus])}</span>
             </div>
+
+            {/* Language Toggle */}
+            <button
+              onClick={() => setLang(lang === 'en' ? 'ta' : 'en')}
+              title="English / தமிழ்"
+              className="flex items-center space-x-1 px-2.5 py-1 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-[10px] font-bold text-slate-200 transition"
+            >
+              <Languages className="w-3 h-3 text-tngold-400" />
+              <span>{t('btn.lang')}</span>
+            </button>
 
             {/* Exam Cycle Switcher */}
             <div className="flex items-center space-x-1.5 bg-white/5 border border-white/10 px-2 py-1 rounded-lg">
@@ -129,7 +146,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-b from-tngold-400 to-tngold-600 hover:from-tngold-300 hover:to-tngold-500 text-tnnavy-950 font-extrabold rounded-lg text-[11px] transition shadow-md"
             >
               <UploadCloud className="w-3.5 h-3.5" />
-              <span>Ingest Master File</span>
+              <span>{t('btn.ingest')}</span>
             </button>
           </div>
         </div>
@@ -156,7 +173,7 @@ export const Header: React.FC<HeaderProps> = ({
                   }`}
                 >
                   <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-tngold-400' : 'text-slate-400'}`} />
-                  <span>{tab.label}</span>
+                  <span>{t(`nav.${tab.id}`)}</span>
                 </button>
               </React.Fragment>
             );

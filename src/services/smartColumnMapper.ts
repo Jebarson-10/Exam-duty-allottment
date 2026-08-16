@@ -34,27 +34,27 @@ export interface MappingProposal {
 
 const HEADER_HINTS: Record<StandardField, string[]> = {
   id: ['id', 'teacher id', 'staff id', 'emis', 'emis id', 'emis number', 'udise', 'udise code', 'school id', 'school code', 'centre id', 'centre code', 'sl no', 's no', 'slno', 'sno', 'code', 'roll', 'serial', 'sr no'],
-  name: ['name', 'teacher name', 'staff name', 'faculty name', 'name of the teacher', 'name of the staff', 'school name', 'name of the school', 'centre name', 'center name', 'institution name', 'institution', 'ஆசிரியர் பெயர்', 'பெயர்'],
-  designation: ['designation', 'post', 'cadre', 'designation of teacher', 'position', 'பதவி'],
-  role: ['role', 'allotted role', 'duty role', 'duty assigned', 'exam role', 'designation in exam', 'பணி'],
-  dutyType: ['duty type', 'type of duty', 'exam type', 'category of duty'],
-  year: ['year', 'exam year', 'academic year', 'session year', 'ஆண்டு'],
-  subject: ['subject', 'handling subject', 'major', 'discipline', 'subject name', 'branch', 'பாடம்'],
-  schoolName: ['school', 'parent school', 'school name', 'working school', 'present school', 'current school', 'institution', 'பள்ளி', 'பணிபுரியும் பள்ளி'],
-  centreName: ['centre', 'exam centre', 'allotted centre', 'centre name', 'center name', 'assigned centre', 'place of duty', 'தேர்வு மையம்'],
-  address: ['address', 'location', 'place', 'taluk', 'village', 'town', 'school address', 'centre address', 'முகவரி'],
-  block: ['block', 'block name', 'educational block', 'zone', 'பிரிவு'],
-  seniority: ['seniority', 'seniority rank', 'district seniority', 'seniority no', 'seniority number', 'rank', 'seniority order', 'முதுநிலை'],
-  doj: ['date of joining', 'doj', 'joining date', 'date of appointment', 'appointment date', 'service from', 'சேர்ந்த நாள்'],
+  name: ['name', 'teacher name', 'staff name', 'faculty name', 'name of the teacher', 'name of the staff', 'school name', 'name of the school', 'centre name', 'center name', 'institution name', 'institution', 'ஆசிரியர் பெயர்', 'பெயர்', 'பணியாளர் பெயர்'],
+  designation: ['designation', 'post', 'cadre', 'designation of teacher', 'position', 'பதவி', 'பணி நிலை', 'பணியிடம்'],
+  role: ['role', 'allotted role', 'duty role', 'duty assigned', 'exam role', 'designation in exam', 'பணி', 'ஒதுக்கப்பட்ட பணி'],
+  dutyType: ['duty type', 'type of duty', 'exam type', 'category of duty', 'தேர்வு வகை', 'பணி வகை'],
+  year: ['year', 'exam year', 'academic year', 'session year', 'ஆண்டு', 'கல்வியாண்டு', 'தேர்வு ஆண்டு'],
+  subject: ['subject', 'handling subject', 'major', 'discipline', 'subject name', 'branch', 'பாடம்', 'கற்பிக்கும் பாடம்', 'பாடத்திட்டம்'],
+  schoolName: ['school', 'parent school', 'school name', 'working school', 'present school', 'current school', 'institution', 'பள்ளி', 'பணிபுரியும் பள்ளி', 'பள்ளியின் பெயர்', 'சார்ந்த பள்ளி'],
+  centreName: ['centre', 'exam centre', 'allotted centre', 'centre name', 'center name', 'assigned centre', 'place of duty', 'தேர்வு மையம்', 'மையப் பள்ளி', 'ஒதுக்கப்பட்ட மையம்'],
+  address: ['address', 'location', 'place', 'taluk', 'village', 'town', 'school address', 'centre address', 'முகவரி', 'தெரு', 'ஊர்', 'இடம்'],
+  block: ['block', 'block name', 'educational block', 'zone', 'பிரிவு', 'கல்வி வட்டம்', 'வட்டம்'],
+  seniority: ['seniority', 'seniority rank', 'district seniority', 'seniority no', 'seniority number', 'rank', 'seniority order', 'முதுநிலை', 'தரவரிசை', 'மூத்த தரவரிசை'],
+  doj: ['date of joining', 'doj', 'joining date', 'date of appointment', 'appointment date', 'service from', 'சேர்ந்த நாள்', 'பணியில் சேர்ந்த நாள்', 'நியமன தேதி'],
   lat: ['lat', 'latitude', 'gps lat', 'geo lat', 'y', 'அகலாங்கு'],
   lng: ['lng', 'lon', 'longitude', 'gps lng', 'geo lng', 'x', 'long', 'நெட்டாங்கு'],
-  exemption: ['exemption', 'is exempted', 'exempted', 'ph', 'medical', 'exemption reason', 'medical exemption', 'physically challenged', 'விதிவிலக்கு'],
-  phone: ['phone', 'mobile', 'mobile number', 'contact', 'cell', 'phone number', 'கைபேசி எண்', 'தொலைபேசி', 'தொடர்பு எண்'],
+  exemption: ['exemption', 'is exempted', 'exempted', 'ph', 'medical', 'exemption reason', 'medical exemption', 'physically challenged', 'விதிவிலக்கு', 'ஊனம்', 'மருத்துவம்'],
+  phone: ['phone', 'mobile', 'mobile number', 'contact', 'cell', 'phone number', 'கைபேசி எண்', 'கைபேசி', 'அலைபேசி', 'தொலைபேசி', 'தொடர்பு எண்', 'தொடர்புக்கு'],
   email: ['email', 'email id', 'mail', 'e-mail', 'மின்னஞ்சல்'],
-  capacity: ['capacity', 'student capacity', 'strength', 'total students', '12th strength', '10th strength', 'halls', 'total halls', 'மாணவர்கள்'],
-  clubbed: ['clubbed', 'clubbed schools', 'clubbed school ids', 'attached schools', 'mapped schools'],
+  capacity: ['capacity', 'student capacity', 'strength', 'total students', '12th strength', '10th strength', 'halls', 'total halls', 'மாணவர்கள்', 'மாணவர்கள் எண்ணிக்கை', 'மொத்த மாணவர்கள்', 'இருக்கைகள்'],
+  clubbed: ['clubbed', 'clubbed schools', 'clubbed school ids', 'attached schools', 'mapped schools', 'இணைக்கப்பட்ட பள்ளிகள்'],
   gender: ['gender', 'sex', 'm/f', 'பாலினம்'],
-  type: ['type', 'school type', 'category', 'management', 'வகை'],
+  type: ['type', 'school type', 'category', 'management', 'வகை', 'பள்ளி வகை', 'நிர்வாக வகை'],
   skip: [],
 };
 
@@ -65,6 +65,10 @@ const KNOWN_DESIGNATIONS = new Set([
   'b.t. assistant', 'bt assistant', 'bt asst', 'b.t.', 'bt', 'p.g.',
   'physical education director', 'ped', 'pet', 'vocational instructor',
   'special teacher', 'post graduate assistant', 'graduate assistant',
+  // Tamil
+  'தலைமை ஆசிரியர்', 'தலைமையாசிரியர்', 'முதுகலை உதவியாளர்', 'முதுநிலை உதவியாளர்',
+  'முதுகலை ஆசிரியர்', 'இளநிலை உதவியாளர்', 'இளநிலை ஆசிரியர்', 'பட்டதாரி ஆசிரியர்',
+  'உடற்கல்வி இயக்குநர்', 'தொழிற்கல்வி ஆசிரியர்', 'சிறப்பு ஆசிரியர்',
 ]);
 
 const KNOWN_SUBJECTS = new Set([
@@ -72,35 +76,55 @@ const KNOWN_SUBJECTS = new Set([
   'maths', 'math', 'computer science', 'cs', 'commerce', 'accountancy',
   'economics', 'history', 'tamil', 'english', 'general', 'hindi',
   'french', 'geography', 'civics', 'political science', 'physical education',
+  // Tamil
+  'தமிழ்', 'ஆங்கிலம்', 'கணிதம்', 'இயற்பியல்', 'வேதியியல்', 'உயிரியல்',
+  'தாவரவியல்', 'விலங்கியல்', 'கணினி அறிவியல்', 'வணிகவியல்', 'கணக்கியல்',
+  'பொருளியல்', 'வரலாறு',
 ]);
 
 const KNOWN_SCHOOL_TYPES = new Set([
   'government', 'govt', 'government aided', 'govt aided', 'aided',
   'matriculation', 'matric', 'self-finance', 'self finance', 'private',
   'cbse', 'icse', 'central',
+  // Tamil
+  'அரசு', 'அரசு நிதியுதவி', 'நிதியுதவி', 'கணக்கீட்டுப் பள்ளி',
+  'மெட்ரிகுலேஷன்', 'சுயநிதி',
 ]);
 
-const KNOWN_GENDERS = new Set(['m', 'f', 'male', 'female', 'other', 'transgender']);
+const KNOWN_GENDERS = new Set(['m', 'f', 'male', 'female', 'other', 'transgender', 'ஆண்', 'பெண்', 'மற்றவை']);
 
 const KNOWN_DUTY_TYPES = new Set([
   'theory', 'practical', 'hall invigilation', 'invigilation', 'flying squad',
+  // Tamil
+  'கோட்பாட்டுத் தேர்வு', 'கோட்பாடு', 'எழுத்துத் தேர்வு', 'செயல்முறைத் தேர்வு',
+  'செயல்முறை', 'அரங்க கண்காணிப்பு',
 ]);
 
 const KNOWN_ROLES = new Set([
   'chief superintendent', 'department officer', 'internal examiner',
   'external examiner', 'hall invigilator', 'standby invigilator',
   'flying squad', 'route officer', 'observer',
+  // Tamil
+  'முதன்மை கண்காணிப்பாளர்', 'முதன்மைக் கண்காணிப்பாளர்', 'துறை அதிகாரி',
+  'உள் தேர்வாளர்', 'வெளி தேர்வாளர்', 'வெளித் தேர்வாளர்', 'கண்காணிப்பாளர்',
+  'கூடுதல் கண்காணிப்பாளர்', 'சுற்று அணி', 'பாதை அதிகாரி',
 ]);
 
 const ERODE_BLOCKS = new Set([
   'erode', 'erode urban', 'bhavani', 'gobichettipalayam', 'gobi',
   'perundurai', 'sathyamangalam', 'anthiyur', 'kodumudi', 'modakkurichi',
   'nambiyur', 'thalavadi', 'chennimalai', 'kavindapadi',
+  // Tamil
+  'ஈரோடு', 'ஈரோடு நகரம்', 'பவானி', 'கோபிசெட்டிபாளையம்', 'கோபி', 'பெருந்துறை',
+  'சத்தியமங்கலம்', 'சத்தி', 'அந்தியூர்', 'கொடுமுடி', 'மொடக்குறிச்சி', 'நம்பியூர்',
+  'தாளவாடி', 'சென்னிமலை', 'காவிந்தபாடி',
 ]);
 
 const KNOWN_EXEMPTIONS = new Set([
   'yes', 'no', 'y', 'n', '0', '1', 'true', 'false', 'ph', 'pwd',
   'medical', 'physically challenged', 'disabled', 'exempted', 'not exempted',
+  // Tamil
+  'ஆம்', 'இல்லை', 'உண்டு', 'விதிவிலக்கு', 'மருத்துவம்', 'ஊனம்', 'ஓய்வு',
 ]);
 
 // ─── Fingerprint Analyzers ───────────────────────────────────────────
@@ -143,11 +167,28 @@ function isBlockName(v: string): boolean {
   return ERODE_BLOCKS.has(lower) || / block$/.test(lower) || / பிரிவு$/.test(lower);
 }
 
-/** School names in TN rosters carry recognisable institutional keywords. */
+/**
+ * School names in TN rosters carry recognisable institutional keywords.
+ * NOTE: English keywords need space/punctuation boundaries; Tamil keywords
+ * are substring-tested because JS \b is ASCII-only and never matches Tamil.
+ */
 function isSchoolNameLike(v: string): boolean {
+  if (v.length <= 5) return false;
   const lower = v.toLowerCase();
-  return /(^|\s)(ghss|ghs|hss|high school|higher secondary|matric|மேல்நிலை|பள்ளி|school|அரசு)\b|school/.test(lower) && v.length > 5;
+  const english = /(^|[\s,])(ghss|ghs|hss|high school|higher secondary|matric|school)([\s,]|$)/.test(lower);
+  const tamil = /மேல்நிலை|பள்ளி|நிதியுதவி/.test(lower);
+  return english || tamil;
 }
+
+/** School-type values are short management labels, never full school names. */
+function isSchoolTypeLike(v: string): boolean {
+  const s = v.trim();
+  if (s.length > 30 || s.includes(',')) return false;
+  return dictMatch(s.toLowerCase(), KNOWN_SCHOOL_TYPES);
+}
+
+/** Headers mentioning an institution belong to schoolName/centreName, not person-name. */
+const INSTITUTION_HEADER_MARKERS = ['school', 'institution', 'centre', 'center', 'பள்ளி', 'மையம்', 'நிறுவனம்'];
 
 function isPhoneLike(v: string): boolean {
   const digits = v.replace(/[\s\-\+\(\)]/g, '');
@@ -246,7 +287,11 @@ export class SmartColumnMapper {
         headerConfidence = 60;
         break;
       }
-      if (aliases.some(a => tokens.includes(a) || (a.length > 3 && clean.includes(a)))) {
+      const weakMatch = aliases.some(a => tokens.includes(a) || (a.length > 3 && clean.includes(a)));
+      if (weakMatch) {
+        // A weak "name" match on an institution header (e.g. "பள்ளியின் பெயர்")
+        // must not steal the slot from the exact schoolName/centreName alias.
+        if (field === 'name' && INSTITUTION_HEADER_MARKERS.some(m => clean.includes(m))) continue;
         headerField = field;
         headerConfidence = 40;
         break;
@@ -285,7 +330,7 @@ export class SmartColumnMapper {
     const genderRate = matchRate(values, v => KNOWN_GENDERS.has(v.toLowerCase().trim()));
     if (genderRate > 60) candidates.push({ field: 'gender', score: genderRate });
 
-    const typeRate = matchRate(values, v => dictMatch(v.toLowerCase().trim(), KNOWN_SCHOOL_TYPES));
+    const typeRate = matchRate(values, isSchoolTypeLike);
     if (typeRate > 50) candidates.push({ field: 'type', score: typeRate });
 
     const dutyTypeRate = matchRate(values, v => KNOWN_DUTY_TYPES.has(v.toLowerCase().trim()));

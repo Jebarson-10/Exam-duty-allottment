@@ -6,6 +6,7 @@ import { IngestionService, ParsedDataset, ColumnMapping, MappingProposal } from 
 import { StandardField } from '../../services/smartColumnMapper';
 import { School, ExamCentre, Teacher, Block } from '../../types';
 import { db } from '../../services/db';
+import { useI18n } from '../../i18n';
 import {
   Upload,
   FileSpreadsheet,
@@ -24,6 +25,32 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+// Tamil glosses for canonical field keys (shown alongside English in தமிழ் mode)
+const FIELD_TA: Partial<Record<StandardField, string>> = {
+  id: 'எண் / அடையாள எண்',
+  name: 'பெயர்',
+  designation: 'பதவி',
+  subject: 'பாடம்',
+  schoolName: 'பள்ளிப் பெயர்',
+  address: 'முகவரி',
+  block: 'கல்வி வட்டம்',
+  seniority: 'தரவரிசை',
+  doj: 'பணியில் சேர்ந்த நாள்',
+  lat: 'அகலாங்கு',
+  lng: 'நெட்டாங்கு',
+  phone: 'கைபேசி எண்',
+  email: 'மின்னஞ்சல்',
+  exemption: 'விதிவிலக்கு',
+  capacity: 'மாணவர் எண்ணிக்கை',
+  clubbed: 'இணைக்கப்பட்ட பள்ளிகள்',
+  gender: 'பாலினம்',
+  type: 'வகை',
+  role: 'பணி',
+  dutyType: 'தேர்வு வகை',
+  year: 'ஆண்டு',
+  centreName: 'தேர்வு மையம்',
+};
+
 interface UniversalDataIngestionViewProps {
   blocks: Block[];
   onDataIngested: () => void;
@@ -39,6 +66,7 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
   onDataIngested,
   onNavigateToMap,
 }) => {
+  const { t, lang } = useI18n();
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressStatus, setProgressStatus] = useState<string>('');
   const [parsedData, setParsedData] = useState<ParsedDataset | null>(null);
@@ -255,10 +283,10 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
           <div className="space-y-1.5 max-w-2xl">
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
               <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Smart Document Ingestion & Auto-Geocoding Engine</span>
+              <span>{t('ing.badge')}</span>
             </div>
             <h1 className="text-xl font-extrabold tracking-tight">
-              Universal Excel, CSV & PDF Roster Ingestion
+              {t('ing.h1')}
             </h1>
             <p className="text-xs text-slate-300 leading-relaxed">
               Upload official CEO Office teacher lists, school lists, exam centre circulars, or PDF orders. The system automatically normalizes fields, links institutions, and <strong>fetches GPS map coordinates automatically</strong>.
@@ -293,7 +321,7 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
             </div>
             <div>
               <h3 className="font-bold text-sm text-slate-800">
-                Drag & Drop or Select Excel (.xlsx, .xls), CSV (.csv), or PDF (.pdf) File
+                {t('ing.dropTitle')}
               </h3>
               <p className="text-xs text-slate-500 mt-1">
                 Supports official EMIS rosters, staff postings, exam centre notifications, and circular PDFs.
@@ -303,7 +331,7 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
             <div>
               <label className="inline-flex items-center space-x-2 px-5 py-2.5 bg-tnnavy-900 hover:bg-tnnavy-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition">
                 <Upload className="w-4 h-4" />
-                <span>Select Document to Ingest</span>
+                <span>{t('ing.select')}</span>
                 <input
                   type="file"
                   accept=".xlsx, .xls, .csv, .pdf"
@@ -328,8 +356,8 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
       {proposals && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-6 p-6">
           <div className="space-y-1">
-            <h2 className="text-lg font-bold text-slate-800">Review Column Mappings</h2>
-            <p className="text-sm text-slate-500">Please confirm or adjust the auto-detected column mappings before parsing the data.</p>
+            <h2 className="text-lg font-bold text-slate-800">{t('ing.reviewTitle')}</h2>
+            <p className="text-sm text-slate-500">{t('ing.reviewSub')}</p>
           </div>
 
           {proposals.map((proposal, pIdx) => {
@@ -361,7 +389,7 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
                     )}
                   </div>
                   <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
-                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Entity Type:</span>
+                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{t('ing.entityType')}</span>
                     <select
                       value={proposal.detectedEntityType}
                       onChange={(e) => handleEntityTypeChange(proposal.sheetName, e.target.value)}
@@ -380,10 +408,10 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
                   <table className="w-full text-left text-sm">
                     <thead className="bg-white text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
                       <tr>
-                        <th className="py-3 px-5">Original Header</th>
-                        <th className="py-3 px-5">Sample Values</th>
-                        <th className="py-3 px-5">Mapped To</th>
-                        <th className="py-3 px-5 text-center">Confidence</th>
+                        <th className="py-3 px-5">{t('ing.header')}</th>
+                        <th className="py-3 px-5">{t('ing.sample')}</th>
+                        <th className="py-3 px-5">{t('ing.mappedTo')}</th>
+                        <th className="py-3 px-5 text-center">{t('ing.confidence')}</th>
                         <th className="py-3 px-5">Method</th>
                       </tr>
                     </thead>
@@ -406,7 +434,11 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
                             >
                               {STANDARD_FIELDS.map((f) => (
                                 <option key={f} value={f}>
-                                  {f === 'skip' ? '🚫 Skip this column' : f}
+                                  {f === 'skip'
+                                    ? t('ing.skip')
+                                    : lang === 'ta' && FIELD_TA[f]
+                                    ? `${f} — ${FIELD_TA[f]}`
+                                    : f}
                                 </option>
                               ))}
                             </select>
@@ -442,7 +474,7 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
               disabled={isProcessing}
               className="flex items-center space-x-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md transition disabled:opacity-50"
             >
-              <span>Confirm Mapping & Parse</span>
+              <span>{t('ing.confirm')}</span>
               <CheckCircle2 className="w-4 h-4" />
             </button>
           </div>

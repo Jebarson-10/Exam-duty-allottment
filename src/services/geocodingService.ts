@@ -87,6 +87,38 @@ export const ERODE_LOCALITIES: Record<string, { lat: number; lng: number }> = {
   'talavadi': { lat: 11.7820, lng: 77.0150 },
   'hasanur': { lat: 11.6920, lng: 77.1250 },
   'dhimbam': { lat: 11.6420, lng: 77.1850 },
+
+  // Tamil names of major towns & taluks (தமிழ் பெயர்கள்)
+  'ஈரோடு': { lat: 11.3418, lng: 77.7212 },
+  'பவானி': { lat: 11.4485, lng: 77.6833 },
+  'கோபிசெட்டிபாளையம்': { lat: 11.4552, lng: 77.4377 },
+  'கோபி': { lat: 11.4552, lng: 77.4377 },
+  'பெருந்துறை': { lat: 11.2764, lng: 77.5837 },
+  'சத்தியமங்கலம்': { lat: 11.5034, lng: 77.2415 },
+  'சத்தி': { lat: 11.5034, lng: 77.2415 },
+  'அந்தியூர்': { lat: 11.5794, lng: 77.5937 },
+  'கொடுமுடி': { lat: 11.0784, lng: 77.8841 },
+  'மொடக்குறிச்சி': { lat: 11.2986, lng: 77.7554 },
+  'நம்பியூர்': { lat: 11.3650, lng: 77.3240 },
+  'தாளவாடி': { lat: 11.7820, lng: 77.0150 },
+  'சென்னிமலை': { lat: 11.1685, lng: 77.6120 },
+  'காவிந்தபாடி': { lat: 11.4280, lng: 77.5450 },
+  'பவானிசாகர்': { lat: 11.4820, lng: 77.1450 },
+  'பர்கூர்': { lat: 11.7820, lng: 77.5320 },
+  'அத்தாணி': { lat: 11.5420, lng: 77.5180 },
+  'சிவகிரி': { lat: 11.1210, lng: 77.7850 },
+  'உஞ்சாலூர்': { lat: 11.1120, lng: 77.8520 },
+  'பாசூர்': { lat: 11.1980, lng: 77.8120 },
+  'வெள்ளோடு': { lat: 11.2420, lng: 77.6850 },
+  'விஜயமங்கலம்': { lat: 11.2380, lng: 77.5020 },
+  'குன்னத்தூர்': { lat: 11.2140, lng: 77.4250 },
+  'அம்மாப்பேட்டை': { lat: 11.5980, lng: 77.7140 },
+  'கொமரபாளையம்': { lat: 11.4420, lng: 77.7050 },
+  'அப்பக்குடல்': { lat: 11.5310, lng: 77.6120 },
+  'திண்டல்': { lat: 11.3280, lng: 77.6820 },
+  'சுரம்பட்டி': { lat: 11.3210, lng: 77.7050 },
+  'வீரப்பன்சத்திரம்': { lat: 11.3620, lng: 77.7250 },
+  'சித்தோடு': { lat: 11.3980, lng: 77.6690 },
 };
 
 const GEOCODE_CACHE_KEY = 'erode_geocode_cache_v1';
@@ -163,9 +195,9 @@ export async function geocodeInstitution(
   // 2. Try Nominatim Geocoding API if online
   if (typeof fetch !== 'undefined') {
     try {
-      // Clean query string for Nominatim (remove punctuation)
+      // Clean query string for Nominatim (keep Unicode letters so Tamil names survive)
       const cleanAddress = `${address} ${blockName} Erode Tamil Nadu India`
-        .replace(/[^\w\s]/gi, ' ')
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -173,7 +205,7 @@ export async function geocodeInstitution(
 
       const response = await fetch(url, {
         headers: {
-          'Accept-Language': 'en',
+          'Accept-Language': 'en,ta',
           'User-Agent': 'ErodeCEOSchoolExamDutySystem/1.0',
         },
       });
