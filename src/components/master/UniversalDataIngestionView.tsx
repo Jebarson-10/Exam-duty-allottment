@@ -2,7 +2,8 @@
 // Handles drag-and-drop Excel, CSV, and PDF uploads, automatically parses tables, and geocodes GPS coordinates on maps.
 
 import React, { useState } from 'react';
-import { IngestionService, ParsedDataset } from '../../services/ingestionService';
+import { IngestionService, ParsedDataset, ColumnMapping, MappingProposal } from '../../services/ingestionService';
+import { StandardField } from '../../services/smartColumnMapper';
 import { School, ExamCentre, Teacher, Block } from '../../types';
 import { db } from '../../services/db';
 import {
@@ -29,6 +30,10 @@ interface UniversalDataIngestionViewProps {
   onNavigateToMap: () => void;
 }
 
+const STANDARD_FIELDS: StandardField[] = [
+  'id', 'name', 'designation', 'subject', 'schoolName', 'address', 'block', 'seniority', 'doj', 'lat', 'lng', 'phone', 'email', 'exemption', 'capacity', 'clubbed', 'gender', 'type', 'role', 'dutyType', 'year', 'centreName', 'skip'
+];
+
 export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProps> = ({
   blocks,
   onDataIngested,
@@ -40,6 +45,10 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [activePreviewTab, setActivePreviewTab] = useState<'TEACHERS' | 'SCHOOLS' | 'CENTRES' | 'HISTORY'>('TEACHERS');
 
+  // Phase 2 state
+  const [proposals, setProposals] = useState<MappingProposal[] | null>(null);
+  const [workbook, setWorkbook] = useState<any>(null);
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -47,31 +56,96 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
     setIsProcessing(true);
     setSaveSuccess(false);
     setProgressStatus(`Reading file "${file.name}"...`);
+    setProposals(null);
+    setParsedData(null);
 
     try {
       const isPDF = file.name.toLowerCase().endsWith('.pdf');
       const arrayBuffer = await file.arrayBuffer();
 
-      let result: ParsedDataset;
       if (isPDF) {
         setProgressStatus('Extracting text and tabular rosters from PDF...');
-        result = await IngestionService.parsePDF(arrayBuffer, blocks);
+        const result = await IngestionService.parsePDF(arrayBuffer, blocks);
+        setParsedData(result);
+        if (result.history.length > 0) setActivePreviewTab('HISTORY');
+        else if (result.teachers.length > 0) setActivePreviewTab('TEACHERS');
+        else if (result.schools.length > 0) setActivePreviewTab('SCHOOLS');
+        else if (result.centres.length > 0) setActivePreviewTab('CENTRES');
       } else {
-        setProgressStatus('Parsing spreadsheet columns and auto-geocoding institution coordinates...');
-        result = await IngestionService.parseSpreadsheet(arrayBuffer, blocks);
+        setProgressStatus('Analyzing spreadsheet columns and generating mapping proposals...');
+        // Propose mappings (Phase 1)
+        const result = IngestionService.proposeFromSpreadsheet(arrayBuffer);
+        setProposals(result.proposals);
+        setWorkbook(result.workbook);
       }
-
-      setParsedData(result);
-      if (result.history.length > 0) setActivePreviewTab('HISTORY');
-      else if (result.teachers.length > 0) setActivePreviewTab('TEACHERS');
-      else if (result.schools.length > 0) setActivePreviewTab('SCHOOLS');
-      else if (result.centres.length > 0) setActivePreviewTab('CENTRES');
       setProgressStatus('');
     } catch (err: any) {
       alert(`Ingestion Error: ${err.message}`);
       setProgressStatus('');
     } finally {
       setIsProcessing(false);
+      // Reset input value so same file can be uploaded again if needed
+      e.target.value = '';
+    }
+  };
+
+  const handleEntityTypeChange = (sheetName: string, newType: string) => {
+    setProposals((prev) =>
+      prev?.map((p) => (p.sheetName === sheetName ? { ...p, detectedEntityType: newType as any } : p)) || null
+    );
+  };
+
+  const handleColumnMappingChange = (sheetName: string, headerName: string, newField: StandardField) => {
+    setProposals((prev) =>
+      prev?.map((p) => {
+        if (p.sheetName !== sheetName) return p;
+        return {
+          ...p,
+          columns: p.columns.map((c) =>
+            c.originalHeader === headerName
+              ? { ...c, detectedField: newField === 'skip' ? null : newField }
+              : c
+          ),
+        };
+      }) || null
+    );
+  };
+
+  const confirmMappingAndParse = async () => {
+    if (!proposals || !workbook) return;
+    setIsProcessing(true);
+    setProgressStatus('Parsing data with confirmed mappings...');
+
+    try {
+      const confirmedMappings = new Map<string, ColumnMapping[]>();
+      const confirmedEntityTypes = new Map<string, string>();
+
+      proposals.forEach((p) => {
+        confirmedMappings.set(p.sheetName, p.columns);
+        confirmedEntityTypes.set(p.sheetName, p.detectedEntityType);
+      });
+
+      const result = await IngestionService.parseWithConfirmedMappings(
+        workbook,
+        confirmedMappings,
+        confirmedEntityTypes,
+        blocks
+      );
+
+      setParsedData(result);
+      if (result.history.length > 0) setActivePreviewTab('HISTORY');
+      else if (result.teachers.length > 0) setActivePreviewTab('TEACHERS');
+      else if (result.schools.length > 0) setActivePreviewTab('SCHOOLS');
+      else if (result.centres.length > 0) setActivePreviewTab('CENTRES');
+
+      // Clear Phase 2 state so we move to Phase 3 (results preview)
+      setProposals(null);
+      setWorkbook(null);
+    } catch (err: any) {
+      alert(`Parsing Error: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+      setProgressStatus('');
     }
   };
 
@@ -211,45 +285,179 @@ export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProp
       </div>
 
       {/* Upload Zone */}
-      <div className="bg-white rounded-2xl border-2 border-dashed border-slate-300 hover:border-tnnavy-600 p-8 text-center transition bg-slate-50/50 shadow-sm">
-        <div className="max-w-md mx-auto space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-tnnavy-50 text-tnnavy-800 mx-auto flex items-center justify-center border border-tnnavy-200">
-            <Upload className="w-6 h-6" />
+      {!proposals && !parsedData && (
+        <div className="bg-white rounded-2xl border-2 border-dashed border-slate-300 hover:border-tnnavy-600 p-8 text-center transition bg-slate-50/50 shadow-sm">
+          <div className="max-w-md mx-auto space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-tnnavy-50 text-tnnavy-800 mx-auto flex items-center justify-center border border-tnnavy-200">
+              <Upload className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-slate-800">
+                Drag & Drop or Select Excel (.xlsx, .xls), CSV (.csv), or PDF (.pdf) File
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Supports official EMIS rosters, staff postings, exam centre notifications, and circular PDFs.
+              </p>
+            </div>
+
+            <div>
+              <label className="inline-flex items-center space-x-2 px-5 py-2.5 bg-tnnavy-900 hover:bg-tnnavy-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition">
+                <Upload className="w-4 h-4" />
+                <span>Select Document to Ingest</span>
+                <input
+                  type="file"
+                  accept=".xlsx, .xls, .csv, .pdf"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isProcessing}
+                />
+              </label>
+            </div>
+
+            {isProcessing && (
+              <div className="pt-2 text-xs font-semibold text-tnnavy-700 animate-pulse flex items-center justify-center space-x-2">
+                <Compass className="w-4 h-4 animate-spin text-tnnavy-600" />
+                <span>{progressStatus || 'Processing document and fetching GPS coordinates...'}</span>
+              </div>
+            )}
           </div>
-          <div>
-            <h3 className="font-bold text-sm text-slate-800">
-              Drag & Drop or Select Excel (.xlsx, .xls), CSV (.csv), or PDF (.pdf) File
-            </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Supports official EMIS rosters, staff postings, exam centre notifications, and circular PDFs.
-            </p>
+        </div>
+      )}
+
+      {/* Phase 2: Mapping Review Screen */}
+      {proposals && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-6 p-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-slate-800">Review Column Mappings</h2>
+            <p className="text-sm text-slate-500">Please confirm or adjust the auto-detected column mappings before parsing the data.</p>
           </div>
 
-          <div>
-            <label className="inline-flex items-center space-x-2 px-5 py-2.5 bg-tnnavy-900 hover:bg-tnnavy-800 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition">
-              <Upload className="w-4 h-4" />
-              <span>Select Document to Ingest</span>
-              <input
-                type="file"
-                accept=".xlsx, .xls, .csv, .pdf"
-                onChange={handleFileUpload}
-                className="hidden"
-                disabled={isProcessing}
-              />
-            </label>
-          </div>
+          {proposals.map((proposal, pIdx) => {
+            const highConfidenceCount = proposal.columns.filter(c => c.confidence > 80 && c.detectedField !== null).length;
+            const totalCols = proposal.columns.length;
+            // Detect the same field assigned to multiple columns (last one wins on parse)
+            const fieldCounts = new Map<string, number>();
+            proposal.columns.forEach(c => {
+              if (c.detectedField) fieldCounts.set(c.detectedField, (fieldCounts.get(c.detectedField) || 0) + 1);
+            });
+            const hasDuplicates = [...fieldCounts.values()].some(n => n > 1);
 
+            return (
+              <div key={pIdx} className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="bg-slate-50 px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-col space-y-1">
+                    <div className="flex items-center space-x-3">
+                      <FileSpreadsheet className="w-5 h-5 text-tnnavy-600" />
+                      <span className="font-bold text-slate-800">Sheet: {proposal.sheetName}</span>
+                    </div>
+                    <span className="text-xs text-slate-500 font-medium">
+                      {highConfidenceCount} of {totalCols} columns auto-mapped with high confidence
+                    </span>
+                    {hasDuplicates && (
+                      <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>Two columns map to the same field — only the last one will be used.</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200">
+                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">Entity Type:</span>
+                    <select
+                      value={proposal.detectedEntityType}
+                      onChange={(e) => handleEntityTypeChange(proposal.sheetName, e.target.value)}
+                      className="text-sm font-bold text-tnnavy-800 bg-transparent border-none focus:ring-0 cursor-pointer outline-none"
+                    >
+                      <option value="TEACHERS">TEACHERS</option>
+                      <option value="SCHOOLS">SCHOOLS</option>
+                      <option value="CENTRES">CENTRES</option>
+                      <option value="DUTY_HISTORY">DUTY_HISTORY</option>
+                      <option value="UNKNOWN">UNKNOWN</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-white text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                      <tr>
+                        <th className="py-3 px-5">Original Header</th>
+                        <th className="py-3 px-5">Sample Values</th>
+                        <th className="py-3 px-5">Mapped To</th>
+                        <th className="py-3 px-5 text-center">Confidence</th>
+                        <th className="py-3 px-5">Method</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {proposal.columns.map((col, cIdx) => (
+                        <tr key={cIdx} className="hover:bg-slate-50/50">
+                          <td className="py-3 px-5 font-bold text-slate-700">{col.originalHeader}</td>
+                          <td className="py-3 px-5 font-mono text-[11px] text-slate-500">
+                            {col.sampleValues.slice(0, 3).join(', ') || <span className="text-slate-300 italic">empty</span>}
+                          </td>
+                          <td className="py-3 px-5">
+                            <select
+                              value={col.detectedField || 'skip'}
+                              onChange={(e) => handleColumnMappingChange(proposal.sheetName, col.originalHeader, e.target.value as StandardField)}
+                              className={`text-sm bg-white border rounded-lg px-3 py-1.5 focus:border-tnnavy-500 focus:ring-1 focus:ring-tnnavy-500 outline-none w-full max-w-[200px] font-medium text-slate-700 shadow-sm cursor-pointer ${
+                                col.detectedField && (fieldCounts.get(col.detectedField) || 0) > 1
+                                  ? 'border-rose-400 ring-1 ring-rose-300'
+                                  : 'border-slate-300'
+                              }`}
+                            >
+                              {STANDARD_FIELDS.map((f) => (
+                                <option key={f} value={f}>
+                                  {f === 'skip' ? '🚫 Skip this column' : f}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-3 px-5 text-center">
+                            <span
+                              className={`inline-flex items-center justify-center px-2 py-1 rounded text-[11px] font-bold shadow-sm ${
+                                col.confidence > 80
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : col.confidence >= 50
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-slate-100 text-slate-500 border border-slate-200'
+                              }`}
+                            >
+                              {Math.round(col.confidence)}%
+                            </span>
+                          </td>
+                          <td className="py-3 px-5 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                            {col.method}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="flex justify-end pt-4 border-t border-slate-100">
+            <button
+              onClick={confirmMappingAndParse}
+              disabled={isProcessing}
+              className="flex items-center space-x-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md transition disabled:opacity-50"
+            >
+              <span>Confirm Mapping & Parse</span>
+              <CheckCircle2 className="w-4 h-4" />
+            </button>
+          </div>
+          
           {isProcessing && (
-            <div className="pt-2 text-xs font-semibold text-tnnavy-700 animate-pulse flex items-center justify-center space-x-2">
+            <div className="pb-2 text-xs font-semibold text-tnnavy-700 animate-pulse flex items-center justify-center space-x-2">
               <Compass className="w-4 h-4 animate-spin text-tnnavy-600" />
-              <span>{progressStatus || 'Processing document and fetching GPS coordinates...'}</span>
+              <span>{progressStatus || 'Parsing data...'}</span>
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Ingestion Results & Preview Card */}
-      {parsedData && (
+      {/* Ingestion Results & Preview Card (Phase 3) */}
+      {parsedData && !proposals && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-4">
           <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
             <div className="space-y-1">

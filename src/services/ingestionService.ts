@@ -1,6 +1,10 @@
 import * as XLSX from 'xlsx';
 import { School, ExamCentre, Teacher, Block, TeacherDesignation, Subject, SchoolType, DutyHistory } from '../types';
 import { geocodeInstitution, batchGeocodeItems } from './geocodingService';
+import { SmartColumnMapper, ColumnMapping, MappingProposal } from './smartColumnMapper';
+
+// Re-export for external consumers
+export type { ColumnMapping, MappingProposal };
 
 // Safely obtain pdfjs-dist in both browser and Node.js environments
 let pdfjsLib: any = null;
@@ -32,54 +36,77 @@ export interface ParsedDataset {
   geocodedCount: number;
 }
 
-// Field Normalization Dictionaries
-const FIELD_ALIASES = {
-  id: ['id', 'teacher id', 'staff id', 'emis', 'emis id', 'emis number', 'udise', 'udise code', 'school id', 'school code', 'centre id', 'centre code', 'center id', 'center code', 'sl no', 's no', 'slno', 'sno', 'code'],
-  name: ['name', 'teacher name', 'staff name', 'faculty name', 'name of the teacher', 'name of the staff', 'school name', 'name of the school', 'centre name', 'center name', 'institution name', 'institution'],
-  designation: ['designation', 'post', 'cadre', 'designation of teacher', 'position'],
-  role: ['role', 'allotted role', 'duty role', 'duty assigned', 'exam role', 'designation in exam'],
-  dutyType: ['duty type', 'type of duty', 'exam type', 'category of duty'],
-  year: ['year', 'exam year', 'academic year', 'session year'],
-  subject: ['subject', 'handling subject', 'major', 'discipline', 'subject name', 'branch'],
-  schoolName: ['school', 'parent school', 'school name', 'working school', 'present school', 'school address', 'current school', 'institution'],
-  centreName: ['centre', 'exam centre', 'allotted centre', 'centre name', 'center name', 'assigned centre', 'place of duty'],
-  address: ['address', 'location', 'place', 'taluk', 'village', 'town', 'school address', 'centre address'],
-  block: ['block', 'block name', 'educational block', 'taluk', 'zone'],
-  seniority: ['seniority', 'seniority rank', 'district seniority', 'seniority no', 'seniority number', 'rank', 'seniority order'],
-  doj: ['date of joining', 'doj', 'joining date', 'date of appointment', 'appointment date', 'service from'],
-  lat: ['lat', 'latitude', 'gps lat', 'geo lat', 'y'],
-  lng: ['lng', 'lon', 'longitude', 'gps lng', 'geo lng', 'x', 'long'],
-  exemption: ['exemption', 'is exempted', 'exempted', 'ph', 'medical', 'exemption reason', 'medical exemption', 'physically challenged'],
-  phone: ['phone', 'mobile', 'mobile number', 'contact', 'cell', 'phone number'],
-  email: ['email', 'email id', 'mail'],
-  capacity: ['capacity', 'student capacity', 'strength', 'total students', '12th strength', '10th strength', 'halls', 'total halls'],
-  clubbed: ['clubbed', 'clubbed schools', 'clubbed school ids', 'attached schools', 'mapped schools'],
-  gender: ['gender', 'sex', 'm/f'],
-  type: ['type', 'school type', 'category', 'management'],
-};
-
 /**
- * Finds the matching standardized key for a raw header string
+ * Extracts a clean header + data-row table from a worksheet.
+ * Government circular files frequently carry banner/title rows above the real
+ * header row, so the header is chosen heuristically from the first few rows
+ * (most text cells, fewest numeric cells), and duplicate header names are
+ * de-duplicated so object keys stay unique.
  */
-function matchHeaderKey(rawHeader: string): string | null {
-  const clean = rawHeader.toLowerCase().trim().replace(/[_\-\.\/]/g, ' ').replace(/\s+/g, ' ');
-  
-  // 1. Exact match first
-  for (const [key, aliases] of Object.entries(FIELD_ALIASES)) {
-    if (aliases.some((alias) => clean === alias)) {
-      return key;
+function extractSheetTable(ws: any): { headers: string[]; rows: Record<string, any>[] } {
+  const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false }) as any[][];
+  const nonEmpty = aoa.filter((r) => r.some((c) => String(c ?? '').trim() !== ''));
+  if (nonEmpty.length < 2) return { headers: [], rows: [] };
+
+  let headerIdx = 0;
+  let bestScore = -Infinity;
+  for (let i = 0; i < Math.min(5, nonEmpty.length - 1); i++) {
+    const filled = nonEmpty[i].map((c: any) => String(c ?? '').trim()).filter(Boolean);
+    const numeric = filled.filter((c) => c !== '' && !isNaN(Number(c))).length;
+    const score = filled.length * 2 + (filled.length - numeric) * 1.5 - numeric * 2 - i * 0.5;
+    if (score > bestScore) {
+      bestScore = score;
+      headerIdx = i;
     }
   }
 
-  // 2. Token / word boundary match
-  const tokens = clean.split(' ');
-  for (const [key, aliases] of Object.entries(FIELD_ALIASES)) {
-    if (aliases.some((alias) => tokens.includes(alias) || (alias.length > 3 && clean.includes(alias)))) {
-      return key;
+  const seen = new Map<string, number>();
+  const headers = nonEmpty[headerIdx].map((c: any, i: number) => {
+    let name = String(c ?? '').trim() || `Column ${i + 1}`;
+    const count = seen.get(name) ?? 0;
+    seen.set(name, count + 1);
+    if (count > 0) name = `${name} (${count + 1})`;
+    return name;
+  });
+
+  const rows = nonEmpty.slice(headerIdx + 1).map((r) => {
+    const obj: Record<string, any> = {};
+    headers.forEach((h, i) => {
+      obj[h] = r[i] ?? '';
+    });
+    return obj;
+  });
+
+  return { headers, rows };
+}
+
+/** Values that explicitly mean "not exempted" despite being non-empty. */
+const NOT_EXEMPTED_VALUES = new Set(['no', 'n', 'false', '0', 'nil', 'none', '-', '--', 'not exempted']);
+
+function isTruthilyExempted(raw: any): boolean {
+  if (raw === undefined || raw === null) return false;
+  const s = String(raw).trim().toLowerCase();
+  if (s === '') return false;
+  return !NOT_EXEMPTED_VALUES.has(s);
+}
+
+/** Normalises DOJ values: ISO strings pass through, Excel serials become ISO dates. */
+function normalizeDateValue(raw: any): string | undefined {
+  if (raw === undefined || raw === null || String(raw).trim() === '') return undefined;
+  if (typeof raw === 'number' || /^\d{5}$/.test(String(raw).trim())) {
+    const serial = Number(raw);
+    if (serial > 20000 && serial < 60000) {
+      const ms = (serial - 25569) * 86400 * 1000; // Excel epoch 1899-12-30 → Unix
+      return new Date(ms).toISOString().split('T')[0];
     }
   }
-
-  return null;
+  const s = String(raw).trim();
+  const m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/); // DD/MM/YYYY (Indian convention)
+  if (m) {
+    const year = m[3].length === 2 ? 2000 + parseInt(m[3]) : parseInt(m[3]);
+    return `${year}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  }
+  return s;
 }
 
 /**
@@ -118,22 +145,53 @@ function normalizeSubject(raw: string): Subject {
 }
 
 export class IngestionService {
+
   /**
-   * Main entry point to parse an uploaded Excel or CSV file
+   * Phase 1: Read the file and propose smart column mappings using data fingerprinting.
+   * Returns MappingProposal[] for user review before actual parsing.
    */
-  public static async parseSpreadsheet(
-    fileBuffer: ArrayBuffer | string,
-    existingBlocks: Block[] = []
-  ): Promise<ParsedDataset> {
+  public static proposeFromSpreadsheet(
+    fileBuffer: ArrayBuffer | string
+  ): { proposals: MappingProposal[]; workbook: any; warnings: string[] } {
     let wb;
     try {
       wb = typeof fileBuffer === 'string'
         ? XLSX.read(fileBuffer, { type: 'binary' })
         : XLSX.read(new Uint8Array(fileBuffer), { type: 'array' });
-    } catch (error: any) {
-      return { teachers: [], schools: [], centres: [], history: [], rawRowCount: 0, detectedType: 'MIXED_MASTER', warnings: ['Failed to parse file: ' + error.message], geocodedCount: 0 };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return { proposals: [], workbook: null, warnings: ['Failed to parse file: ' + msg] };
     }
 
+    const proposals: MappingProposal[] = [];
+    const warnings: string[] = [];
+
+    for (const sheetName of wb.SheetNames) {
+      const ws = wb.Sheets[sheetName];
+      const { headers, rows: rawRows } = extractSheetTable(ws);
+      if (headers.length === 0 || rawRows.length === 0) continue;
+      if (rawRows.length > 50000) {
+        warnings.push(`Sheet "${sheetName}" has ${rawRows.length} rows — exceeds 50,000 row limit. Please split the file.`);
+        continue;
+      }
+
+      const sampleRows = rawRows.slice(0, 20);
+      const proposal = SmartColumnMapper.proposeMapping(sheetName, headers, sampleRows, rawRows.length);
+      proposals.push(proposal);
+    }
+
+    return { proposals, workbook: wb, warnings };
+  }
+
+  /**
+   * Phase 2: Parse the spreadsheet using confirmed column mappings from user review.
+   */
+  public static async parseWithConfirmedMappings(
+    workbook: any,
+    confirmedMappings: Map<string, ColumnMapping[]>,
+    confirmedEntityTypes: Map<string, string>,
+    existingBlocks: Block[] = []
+  ): Promise<ParsedDataset> {
     const allSchools: School[] = [];
     const allCentres: ExamCentre[] = [];
     const allTeachers: Teacher[] = [];
@@ -143,48 +201,57 @@ export class IngestionService {
 
     const blockLookup = new Map(existingBlocks.map((b) => [b.name.toLowerCase(), b.id]));
 
-    // Iterate over all sheets in the workbook
-    for (const sheetName of wb.SheetNames) {
-      const ws = wb.Sheets[sheetName];
-      const rawRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
-      if (rawRows.length === 0) continue;
-      if (rawRows.length > 50000) {
-        warnings.push(`Sheet "${sheetName}" has ${rawRows.length} rows — exceeds 50,000 row limit. Please split the file.`);
-        continue;
-      }
+    for (const sheetName of workbook.SheetNames) {
+      const mappings = confirmedMappings.get(sheetName);
+      if (!mappings) continue;
+
+      const ws = workbook.Sheets[sheetName];
+      const { rows: rawRows } = extractSheetTable(ws);
+      if (rawRows.length === 0 || rawRows.length > 50000) continue;
 
       rawRowCount += rawRows.length;
-      const firstRow = rawRows[0];
-      const rawHeaders = Object.keys(firstRow);
 
-      // Build header map: normalizedKey -> originalHeader
+      // Build headerMap from confirmed mappings: fieldName → originalHeader
       const headerMap: Record<string, string> = {};
-      for (const h of rawHeaders) {
-        const matched = matchHeaderKey(h);
-        if (matched) headerMap[matched] = h;
+      for (const m of mappings) {
+        if (m.detectedField && m.detectedField !== 'skip') {
+          headerMap[m.detectedField] = m.originalHeader;
+        }
       }
 
-      // Determine entity type of this sheet
-      const isHistorySheet = !!((headerMap.year || headerMap.role) && (headerMap.centreName || headerMap.name || sheetName.toLowerCase().includes('history') || sheetName.toLowerCase().includes('duty')));
-      const isTeacherSheet = !isHistorySheet && !!(headerMap.designation || headerMap.subject || headerMap.seniority);
-      const isCentreSheet = !isHistorySheet && !isTeacherSheet && !!(headerMap.capacity || headerMap.clubbed || sheetName.toLowerCase().includes('centre'));
-      const isSchoolSheet = !isHistorySheet && !isTeacherSheet && !isCentreSheet;
+      const entityType = confirmedEntityTypes.get(sheetName) || 'UNKNOWN';
+
+      // The same logical "name" column can be auto-mapped to name/schoolName/
+      // centreName depending on header wording — resolve per entity type so a
+      // "School Name" or "Centre Name" header is never silently dropped.
+      if (entityType === 'CENTRES') {
+        headerMap.name = headerMap.name || headerMap.centreName || headerMap.schoolName;
+      } else if (entityType === 'SCHOOLS' || entityType === 'UNKNOWN') {
+        headerMap.name = headerMap.name || headerMap.schoolName || headerMap.centreName;
+      }
 
       if (!headerMap.name && !headerMap.id) {
-        warnings.push(`Sheet "${sheetName}" is missing required columns: name/staff_name. Skipped.`);
+        warnings.push(`Sheet "${sheetName}" has no recognisable name or ID column. Map at least one column to "name" and retry. Skipped.`);
         continue;
       }
 
-      if (isHistorySheet) {
+      if (entityType === 'DUTY_HISTORY') {
+        const centreHeader = headerMap.centreName || headerMap.schoolName || headerMap.name;
         for (let i = 0; i < rawRows.length; i++) {
           const row = rawRows[i];
           const rawYearStr = String(row[headerMap.year] || '2025');
+          // "2023-2024" academic years: the exam is held in the LATER year.
+          const ayMatch = rawYearStr.match(/^(20\d\d)\s*[-–]\s*(?:20)?(\d{2})$/);
           const yearMatch = rawYearStr.match(/\b(20\d\d)\b/);
-          const yearNum = yearMatch ? parseInt(yearMatch[1]) : 2025;
+          const yearNum = ayMatch
+            ? parseInt(ayMatch[1].slice(0, 2) + ayMatch[2])
+            : yearMatch
+            ? parseInt(yearMatch[1])
+            : 2025;
           const academicYear = rawYearStr.includes('-') ? rawYearStr : `${yearNum - 1}-${yearNum}`;
           const rawTName = row[headerMap.name] || row[headerMap.id] || `Teacher ${i + 1}`;
           const rawTId = row[headerMap.id] || `TCH-${rawTName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}`;
-          const rawCName = row[headerMap.centreName] || row[headerMap.schoolName] || `Exam Centre ${i + 1}`;
+          const rawCName = row[centreHeader] || `Exam Centre ${i + 1}`;
           const rawCId = `CTR-${rawCName.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8)}`;
           const rawRole = (row[headerMap.role] || 'Hall Invigilator') as any;
           const rawDutyType = (row[headerMap.dutyType] || 'Theory') as any;
@@ -203,7 +270,7 @@ export class IngestionService {
             notes: 'Imported historical allotment archive',
           });
         }
-      } else if (isTeacherSheet) {
+      } else if (entityType === 'TEACHERS') {
         for (let i = 0; i < rawRows.length; i++) {
           const row = rawRows[i];
           const rawName = row[headerMap.name] || `Teacher ${i + 1}`;
@@ -213,9 +280,9 @@ export class IngestionService {
           const rawSub = row[headerMap.subject] || 'Physics';
           const parsedSeniority = parseInt(row[headerMap.seniority]);
           const rawSeniority = isNaN(parsedSeniority) ? (i + 1) : parsedSeniority;
-          const rawDoj = row[headerMap.doj] ? String(row[headerMap.doj]) : '2016-06-01';
+          const rawDoj = normalizeDateValue(row[headerMap.doj]) || '2016-06-01';
           const rawPhone = String(row[headerMap.phone] || '9443100000');
-          const rawExempt = !!(row[headerMap.exemption] && String(row[headerMap.exemption]).toLowerCase() !== '0' && String(row[headerMap.exemption]).toLowerCase() !== 'false');
+          const rawExempt = isTruthilyExempted(row[headerMap.exemption]);
           const rawLat = parseFloat(row[headerMap.lat]);
           const rawLng = parseFloat(row[headerMap.lng]);
 
@@ -254,7 +321,7 @@ export class IngestionService {
             phone: rawPhone,
           });
         }
-      } else if (isCentreSheet) {
+      } else if (entityType === 'CENTRES') {
         for (let i = 0; i < rawRows.length; i++) {
           const row = rawRows[i];
           const rawName = row[headerMap.name] || `Exam Centre ${i + 1}`;
@@ -285,7 +352,7 @@ export class IngestionService {
           });
         }
       } else {
-        // School Sheet
+        // Schools or unknown — treat as school data
         for (let i = 0; i < rawRows.length; i++) {
           const row = rawRows[i];
           const rawName = row[headerMap.name] || `School ${i + 1}`;
@@ -336,6 +403,37 @@ export class IngestionService {
       warnings,
       geocodedCount,
     };
+  }
+
+  /**
+   * Backward-compatible: auto-proposes mappings, auto-confirms them, and parses in one call.
+   * Used by tests and legacy code paths.
+   */
+  public static async parseSpreadsheet(
+    fileBuffer: ArrayBuffer | string,
+    existingBlocks: Block[] = []
+  ): Promise<ParsedDataset> {
+    const { proposals, workbook, warnings: proposeWarnings } = this.proposeFromSpreadsheet(fileBuffer);
+
+    if (!workbook || proposals.length === 0) {
+      return {
+        teachers: [], schools: [], centres: [], history: [],
+        rawRowCount: 0, detectedType: 'MIXED_MASTER',
+        warnings: proposeWarnings, geocodedCount: 0,
+      };
+    }
+
+    // Auto-confirm all proposals as-is
+    const confirmedMappings = new Map<string, ColumnMapping[]>();
+    const confirmedEntityTypes = new Map<string, string>();
+    for (const p of proposals) {
+      confirmedMappings.set(p.sheetName, p.columns);
+      confirmedEntityTypes.set(p.sheetName, p.detectedEntityType);
+    }
+
+    const result = await this.parseWithConfirmedMappings(workbook, confirmedMappings, confirmedEntityTypes, existingBlocks);
+    result.warnings = [...proposeWarnings, ...result.warnings];
+    return result;
   }
 
   /**
