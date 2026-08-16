@@ -43,10 +43,11 @@ export class ExportService {
     XLSX.utils.book_append_sheet(wb, wsMaster, 'Master Allotment');
 
     // Sheet 2: Centre-Wise Breakdown
-    const centreSummaryMap = new Map<string, { centre: string; chief: string; deptOfficer: string; invigilators: number; standby: number }>();
+    const centreSummaryMap = new Map<string, { centre: string; centreNumber?: string; chief: string; deptOfficer: string; invigilators: number; standby: number }>();
     for (const c of centres) {
       centreSummaryMap.set(c.id, {
         centre: c.name,
+        centreNumber: c.centreNumber,
         chief: '-',
         deptOfficer: '-',
         invigilators: 0,
@@ -66,6 +67,7 @@ export class ExportService {
 
     const centreData = Array.from(centreSummaryMap.values()).map((c, i) => ({
       'S.No': i + 1,
+      'Centre Number': c.centreNumber || '-',
       'Exam Centre Name': c.centre,
       'Chief Superintendent': c.chief,
       'Department Officer': c.deptOfficer,
@@ -164,7 +166,7 @@ export class ExportService {
         ['Designation & Subject', `${teacher.designation} — ${teacher.subject}`],
         ['Parent Institution', `${school.name}, ${school.address}`],
         ['Assigned Duty Role', `${allotment.role} (${allotment.dutyType} Duty)`],
-        ['Allotted Exam Centre', `${centre.name}`],
+        ['Allotted Exam Centre', `${centre.name}${centre.centreNumber ? ` (Centre No. ${centre.centreNumber})` : ''}`],
         ['Centre Address & Location', `${centre.address}`],
         ['Assigned Hall / Session', allotment.hallNumber ? `Hall No. ${allotment.hallNumber}` : (allotment.session || 'Full Exam Schedule')],
         ['Calculated Travel Distance', `${allotment.distanceKm} km (Verified within permissible radius)`],

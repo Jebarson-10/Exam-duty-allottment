@@ -41,6 +41,7 @@ export const CentresManager: React.FC<CentresManagerProps> = ({
     const matchSearch =
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.centreNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.address.toLowerCase().includes(searchTerm.toLowerCase());
     const matchBlock = blockFilter === 'ALL' || c.blockId === blockFilter;
     return matchSearch && matchBlock;
@@ -49,6 +50,7 @@ export const CentresManager: React.FC<CentresManagerProps> = ({
   const handleOpenAdd = () => {
     setEditingCentre({
       id: `CTR-${String(centres.length + 1).padStart(2, '0')}`,
+      centreNumber: '',
       name: '',
       address: '',
       lat: 11.3418,
@@ -168,7 +170,17 @@ export const CentresManager: React.FC<CentresManagerProps> = ({
                 filteredCentres.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50/80 transition">
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-800">{c.name}</div>
+                      <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                        {c.centreNumber && (
+                          <span
+                            className="px-1.5 py-0.5 bg-tngold-50 border border-tngold-300 rounded text-[10px] font-bold text-tngold-700 tabular-nums"
+                            title="Official Centre Number (மைய எண்)"
+                          >
+                            No. {c.centreNumber}
+                          </span>
+                        )}
+                        <span>{c.name}</span>
+                      </div>
                       <div className="text-[11px] text-slate-400">ID: {c.id} | {c.address}</div>
                     </td>
                     <td className="py-3 px-4 font-medium text-slate-600">
@@ -252,6 +264,19 @@ export const CentresManager: React.FC<CentresManagerProps> = ({
                     className="w-full border border-slate-300 rounded p-2"
                   />
                 </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Official Centre Number (மைய எண்)</label>
+                  <input
+                    type="text"
+                    value={editingCentre.centreNumber || ''}
+                    onChange={(e) => setEditingCentre({ ...editingCentre, centreNumber: e.target.value })}
+                    placeholder="e.g. 33101401"
+                    className="w-full border border-slate-300 rounded p-2 tabular-nums"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Block</label>
                   <select

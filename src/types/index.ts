@@ -63,6 +63,7 @@ export interface School {
 
 export interface ExamCentre {
   id: string;
+  centreNumber?: string; // Official centre number assigned by the CEO Office (மைய எண்)
   name: string;
   address: string;
   lat: number;

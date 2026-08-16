@@ -54,6 +54,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
       })),
       centres: centres.map((r: any) => ({
         ...r,
+        centreNumber: r.centre_number,
         blockId: r.block_id,
         schoolId: r.school_id,
         totalHalls: r.total_halls,
@@ -160,8 +161,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         student_strength_10th, student_strength_11th, student_strength_12th) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
     );
     const insCentres = context.env.DB.prepare(
-      `INSERT INTO centres (id, name, address, lat, lng, block_id, school_id, capacity, total_halls,
-        clubbed_school_ids, chief_superintendent_room, contact_person, phone) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      `INSERT INTO centres (id, centre_number, name, address, lat, lng, block_id, school_id, capacity, total_halls,
+        clubbed_school_ids, chief_superintendent_room, contact_person, phone) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     );
     const insTeachers = context.env.DB.prepare(
       `INSERT INTO teachers (id, name, gender, school_id, subject, designation, seniority_rank, date_of_joining,
@@ -200,7 +201,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
     for (const c of payload.centres ?? []) {
       statements.push(insCentres.bind(
-        c.id, c.name, str(c.address, ''), num(c.lat), num(c.lng), c.blockId, str(c.schoolId),
+        c.id, str(c.centreNumber), c.name, str(c.address, ''), num(c.lat), num(c.lng), c.blockId, str(c.schoolId),
         num(c.capacity, 300), num(c.totalHalls),
         c.clubbedSchoolIds ? JSON.stringify(c.clubbedSchoolIds) : null,
         str(c.chiefSuperintendentRoom), str(c.contactPerson), str(c.phone, '')

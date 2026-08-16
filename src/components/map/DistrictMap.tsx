@@ -318,6 +318,9 @@ export const DistrictMap: React.FC<DistrictMapProps> = ({
                         <span>{centre.name}</span>
                       </div>
                       <div className="text-[11px] text-slate-600">
+                        {centre.centreNumber && (
+                          <p><span className="font-semibold">Centre No. (மைய எண்):</span> <span className="font-bold text-red-700 tabular-nums">{centre.centreNumber}</span></p>
+                        )}
                         <p><span className="font-semibold">Block:</span> {blockMap.get(centre.blockId) || centre.blockId}</p>
                         <p><span className="font-semibold">Capacity:</span> {centre.capacity} students ({centre.totalHalls} halls)</p>
                         <p><span className="font-semibold">GPS:</span> {centre.lat.toFixed(4)}, {centre.lng.toFixed(4)}</p>

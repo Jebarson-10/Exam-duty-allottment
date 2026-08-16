@@ -31,10 +31,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const centre: any = await context.request.json();
     await context.env.DB.prepare(`
-      INSERT INTO centres (id, name, address, lat, lng, block_id, school_id, capacity, total_halls,
+      INSERT INTO centres (id, centre_number, name, address, lat, lng, block_id, school_id, capacity, total_halls,
         clubbed_school_ids, chief_superintendent_room, contact_person, phone)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
+        centre_number = excluded.centre_number,
         name = excluded.name,
         address = excluded.address,
         lat = excluded.lat,
@@ -49,6 +50,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         phone = excluded.phone
     `).bind(
       centre.id,
+      centre.centreNumber || null,
       centre.name,
       centre.address || '',
       centre.lat ?? 0,

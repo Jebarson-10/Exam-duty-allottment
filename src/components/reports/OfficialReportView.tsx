@@ -209,7 +209,7 @@ export const OfficialReportView: React.FC<OfficialReportViewProps> = ({
                     <td className="py-3 px-4">
                       <div className="font-semibold text-slate-800">{a.centreName}</div>
                       <div className="text-[10px] text-slate-400">
-                        {a.hallNumber ? `Hall ${a.hallNumber}` : a.session || 'Full Day'}
+                        {(() => { const cn = centres.find((c) => c.id === a.centreId)?.centreNumber; return cn ? `Centre No. ${cn}` : (a.hallNumber ? `Hall ${a.hallNumber}` : a.session || 'Full Day'); })()}
                       </div>
                     </td>
                     <td className="py-3 px-4">

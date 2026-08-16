@@ -208,3 +208,30 @@ describe('5. Native Tamil language support', () => {
     expect(STRINGS['nav.theory'][1]).toBe('கோட்பாட்டுத் தேர்வு ஒதுக்கீடு');
   });
 });
+
+describe('6. Official centre numbers (மைய எண்)', () => {
+  it('detects centre-number columns from English and Tamil headers', () => {
+    const en = SmartColumnMapper.analyzeColumn('Centre No', ['33101401', '33101402']);
+    expect(en.field).toBe('centreNumber');
+
+    const ta = SmartColumnMapper.analyzeColumn('மைய எண்', ['101', '102']);
+    expect(ta.field).toBe('centreNumber');
+  });
+
+  it('captures centre numbers during ingestion and uses them as stable IDs', async () => {
+    const ws = XLSX.utils.json_to_sheet([
+      { 'Centre No': '33101401', 'Centre Name': 'Govt Model GHSS Centre, Erode', 'Block Name': 'Erode Urban', 'Student Capacity': 450 },
+      { 'Centre No': '33101402', 'Centre Name': 'Govt Boys HSS Centre, Bhavani', 'Block Name': 'Bhavani', 'Student Capacity': 380 },
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Centres');
+    const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+    const parsed = await IngestionService.parseSpreadsheet(buffer, OFFICIAL_ERODE_BLOCKS);
+    expect(parsed.centres.length).toBe(2);
+    expect(parsed.centres[0].centreNumber).toBe('33101401');
+    expect(parsed.centres[1].centreNumber).toBe('33101402');
+    expect(parsed.centres[0].id).toBe('CTR-33101401');
+    expect(parsed.centres[1].id).toBe('CTR-33101402');
+  });
+});

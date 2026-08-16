@@ -49,6 +49,7 @@ const FIELD_TA: Partial<Record<StandardField, string>> = {
   dutyType: 'தேர்வு வகை',
   year: 'ஆண்டு',
   centreName: 'தேர்வு மையம்',
+  centreNumber: 'மைய எண்',
 };
 
 interface UniversalDataIngestionViewProps {
@@ -58,7 +59,7 @@ interface UniversalDataIngestionViewProps {
 }
 
 const STANDARD_FIELDS: StandardField[] = [
-  'id', 'name', 'designation', 'subject', 'schoolName', 'address', 'block', 'seniority', 'doj', 'lat', 'lng', 'phone', 'email', 'exemption', 'capacity', 'clubbed', 'gender', 'type', 'role', 'dutyType', 'year', 'centreName', 'skip'
+  'id', 'name', 'designation', 'subject', 'schoolName', 'address', 'block', 'seniority', 'doj', 'lat', 'lng', 'phone', 'email', 'exemption', 'capacity', 'clubbed', 'gender', 'type', 'role', 'dutyType', 'year', 'centreName', 'centreNumber', 'skip'
 ];
 
 export const UniversalDataIngestionView: React.FC<UniversalDataIngestionViewProps> = ({

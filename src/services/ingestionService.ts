@@ -369,7 +369,11 @@ export class IngestionService {
         for (let i = 0; i < rawRows.length; i++) {
           const row = rawRows[i];
           const rawName = row[headerMap.name] || `Exam Centre ${i + 1}`;
-          const rawId = row[headerMap.id] || `CTR-IMP-${Date.now()}-${i + 1}`;
+          const rawCentreNo = row[headerMap.centreNumber] !== undefined && String(row[headerMap.centreNumber]).trim() !== ''
+            ? String(row[headerMap.centreNumber]).trim()
+            : undefined;
+          // Official centre numbers make stable IDs; fall back to generated ones.
+          const rawId = row[headerMap.id] || (rawCentreNo ? `CTR-${rawCentreNo}` : `CTR-IMP-${Date.now()}-${i + 1}`);
           const rawAddress = row[headerMap.address] || rawName;
           const parsedCap = parseInt(row[headerMap.capacity]);
           const rawCap = isNaN(parsedCap) ? 350 : parsedCap;
@@ -384,6 +388,7 @@ export class IngestionService {
 
           allCentres.push({
             id: String(rawId),
+            centreNumber: rawCentreNo,
             name: String(rawName),
             address: String(rawAddress),
             lat: !isNaN(rawLat) ? rawLat : 11.3418,

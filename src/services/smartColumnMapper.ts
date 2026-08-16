@@ -13,6 +13,7 @@ export type StandardField =
   | 'address' | 'block' | 'seniority' | 'doj' | 'lat' | 'lng'
   | 'phone' | 'email' | 'exemption' | 'capacity' | 'clubbed'
   | 'gender' | 'type' | 'role' | 'dutyType' | 'year' | 'centreName'
+  | 'centreNumber'
   | 'skip';
 
 export interface ColumnMapping {
@@ -42,6 +43,7 @@ const HEADER_HINTS: Record<StandardField, string[]> = {
   subject: ['subject', 'handling subject', 'major', 'discipline', 'subject name', 'branch', 'பாடம்', 'கற்பிக்கும் பாடம்', 'பாடத்திட்டம்'],
   schoolName: ['school', 'parent school', 'school name', 'working school', 'present school', 'current school', 'institution', 'பள்ளி', 'பணிபுரியும் பள்ளி', 'பள்ளியின் பெயர்', 'சார்ந்த பள்ளி'],
   centreName: ['centre', 'exam centre', 'allotted centre', 'centre name', 'center name', 'assigned centre', 'place of duty', 'தேர்வு மையம்', 'மையப் பள்ளி', 'ஒதுக்கப்பட்ட மையம்'],
+  centreNumber: ['centre number', 'centre no', 'centre no.', 'center number', 'centre code', 'exam centre number', 'மைய எண்', 'தேர்வு மைய எண்', 'மையக் குறியீடு'],
   address: ['address', 'location', 'place', 'taluk', 'village', 'town', 'school address', 'centre address', 'முகவரி', 'தெரு', 'ஊர்', 'இடம்'],
   block: ['block', 'block name', 'educational block', 'zone', 'பிரிவு', 'கல்வி வட்டம்', 'வட்டம்'],
   seniority: ['seniority', 'seniority rank', 'district seniority', 'seniority no', 'seniority number', 'rank', 'seniority order', 'முதுநிலை', 'தரவரிசை', 'மூத்த தரவரிசை'],
@@ -287,14 +289,28 @@ export class SmartColumnMapper {
         headerConfidence = 60;
         break;
       }
-      const weakMatch = aliases.some(a => tokens.includes(a) || (a.length > 3 && clean.includes(a)));
-      if (weakMatch) {
-        // A weak "name" match on an institution header (e.g. "பள்ளியின் பெயர்")
-        // must not steal the slot from the exact schoolName/centreName alias.
-        if (field === 'name' && INSTITUTION_HEADER_MARKERS.some(m => clean.includes(m))) continue;
-        headerField = field;
+    }
+
+    // Weak matching: pick the field whose matched alias is LONGEST so specific
+    // aliases ("centre no" → centreNumber) beat generic ones ("centre" → centreName).
+    if (!headerField) {
+      let bestWeak: { field: StandardField; aliasLen: number } | null = null;
+      for (const [field, aliases] of Object.entries(HEADER_HINTS) as [StandardField, string[]][]) {
+        if (field === 'skip') continue;
+        for (const a of aliases) {
+          const matched = tokens.includes(a) || (a.length > 3 && clean.includes(a));
+          if (!matched) continue;
+          // A weak "name" match on an institution header (e.g. "பள்ளியின் பெயர்")
+          // must not steal the slot from the exact schoolName/centreName alias.
+          if (field === 'name' && INSTITUTION_HEADER_MARKERS.some(m => clean.includes(m))) continue;
+          if (!bestWeak || a.length > bestWeak.aliasLen) {
+            bestWeak = { field, aliasLen: a.length };
+          }
+        }
+      }
+      if (bestWeak) {
+        headerField = bestWeak.field;
         headerConfidence = 40;
-        break;
       }
     }
 

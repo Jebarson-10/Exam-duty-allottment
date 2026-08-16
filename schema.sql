@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS schools (
 -- Exam Centres Master
 CREATE TABLE IF NOT EXISTS centres (
     id TEXT PRIMARY KEY,
+    centre_number TEXT, -- official CEO Office centre number (மைய எண்)
     name TEXT NOT NULL,
     address TEXT,
     lat REAL NOT NULL DEFAULT 0,
